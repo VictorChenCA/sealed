@@ -1,0 +1,32 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    color-scheme: dark;
+  }
+  html, body {
+    background: hsl(240 10% 4%);
+    color: hsl(0 0% 95%);
+    font-feature-settings: "rlig" 1, "calt" 1, "ss01" 1;
+    -webkit-font-smoothing: antialiased;
+  }
+  ::selection { background: hsl(258 90% 66% / 0.35); }
+}
+
+@layer components {
+  .input {
+    @apply w-full rounded-md bg-panel-2 border border-border text-text px-3 py-2 text-sm
+           placeholder:text-dim focus:outline-none focus:ring-2 focus:ring-accent/50 focus:border-accent transition;
+  }
+}
+
+@layer utilities {
+  .mono { font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace; }
+  .panel-grid {
+    background-image:
+      radial-gradient(circle at 1px 1px, hsl(240 5% 18%) 1px, transparent 0);
+    background-size: 24px 24px;
+  }
+}

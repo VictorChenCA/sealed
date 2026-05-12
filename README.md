@@ -84,13 +84,33 @@ separately and the UI shows a loading pill until ready.
 
 Anyone can check that the running deployment matches the public source.
 
-```bash
-# 1. Hit the verify endpoint
-curl https://<your-app>.eigencompute.xyz/verify
+### Quick path: one-liner verifier
 
-# 2. Check the commit SHA matches a published commit in this repo
-# 3. Check the model sha256 matches the published Qwen weights
-# 4. Reproduce the docker build locally and confirm the image digest matches
+```bash
+./scripts/verify-locally.sh https://34-178-145-214.nip.io
+```
+
+That script:
+1. Fetches `/verify` from the live deployment
+2. Confirms the reported commit SHA exists in this public GitHub repo
+3. Confirms the live classifier model's sha256 matches the one pinned
+   in `Dockerfile` at that commit (so a tampered server with a swapped
+   model would be caught here)
+
+### Manual path: reproduce the build yourself
+
+```bash
+# Fetch the live attestation surface
+curl https://34-178-145-214.nip.io/verify
+
+# Take the commit_sha from that response, then:
+git clone https://github.com/VictorChenCA/sealed && cd sealed
+git checkout <commit_sha>
+docker build -t sealed:verify .
+
+# The image digest you produce locally should match what's registered on
+# the ecloud verifier dashboard:
+#   https://verify-sepolia.eigencloud.xyz/app/0x01B009899E66b52CF2295b8F79C3fc4E624c0A64
 ```
 
 ## Architecture
