@@ -17,13 +17,17 @@ app.use(express.static(path.resolve(__dirname, "../web")));
 
 // Health check — returns 200 even before model loads so EigenCompute
 // doesn't kill us during cold start. Model-ready flag exposed separately.
-app.get("/healthz", (_req, res) => {
+// /health is the Caddy reverse-proxy health check; /healthz is the
+// app-level human-readable status. Both return 200 on liveness.
+const healthHandler = (_req: express.Request, res: express.Response) => {
   res.json({
     status: "ok",
     classifier: classifierStatus(),
     uptime_sec: Math.round(process.uptime()),
   });
-});
+};
+app.get("/healthz", healthHandler);
+app.get("/health", healthHandler);
 
 app.use("/api/circles", circlesRouter);
 app.use("/verify", verifyRouter);
