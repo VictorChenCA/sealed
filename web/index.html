@@ -1,0 +1,349 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Sealed — salary disclosure circles</title>
+    <style>
+      :root {
+        --bg: #0a0a0b;
+        --panel: #111114;
+        --panel-2: #18181c;
+        --border: #26262d;
+        --text: #e8e8ea;
+        --dim: #8a8a92;
+        --accent: #7c5cff;
+        --good: #4ade80;
+        --bad: #f87171;
+        --warn: #fbbf24;
+      }
+      * { box-sizing: border-box; }
+      body {
+        margin: 0;
+        background: var(--bg);
+        color: var(--text);
+        font: 14px/1.5 -apple-system, ui-monospace, "SF Mono", Menlo, monospace;
+      }
+      main { max-width: 880px; margin: 40px auto; padding: 0 24px; }
+      h1 { font-size: 28px; margin: 0 0 4px; letter-spacing: -0.02em; }
+      .tag { color: var(--dim); font-size: 12px; }
+      .panel {
+        background: var(--panel);
+        border: 1px solid var(--border);
+        border-radius: 8px;
+        padding: 20px;
+        margin: 16px 0;
+      }
+      h2 { font-size: 16px; margin: 0 0 12px; color: var(--text); }
+      label { display: block; font-size: 12px; color: var(--dim); margin: 10px 0 4px; }
+      input, select, textarea {
+        width: 100%;
+        background: var(--panel-2);
+        color: var(--text);
+        border: 1px solid var(--border);
+        border-radius: 4px;
+        padding: 8px 10px;
+        font: inherit;
+      }
+      .row { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+      button {
+        background: var(--accent);
+        color: white;
+        border: 0;
+        border-radius: 4px;
+        padding: 10px 16px;
+        font: inherit;
+        font-weight: 600;
+        cursor: pointer;
+        margin-top: 12px;
+      }
+      button:disabled { opacity: 0.5; cursor: not-allowed; }
+      button.ghost {
+        background: transparent;
+        border: 1px solid var(--border);
+        color: var(--text);
+      }
+      pre {
+        background: var(--panel-2);
+        border: 1px solid var(--border);
+        padding: 12px;
+        border-radius: 4px;
+        overflow-x: auto;
+        font-size: 12px;
+        margin: 0;
+      }
+      .pill {
+        display: inline-block;
+        padding: 2px 8px;
+        border-radius: 12px;
+        font-size: 11px;
+        background: var(--panel-2);
+        border: 1px solid var(--border);
+        color: var(--dim);
+      }
+      .pill.good { color: var(--good); border-color: #1d4d3a; }
+      .pill.bad { color: var(--bad); border-color: #4d1d1d; }
+      .pill.warn { color: var(--warn); border-color: #4d3a1d; }
+      .reveal-row {
+        display: grid;
+        grid-template-columns: 1fr 1fr 1fr 1fr 1fr;
+        gap: 8px;
+        padding: 8px 0;
+        border-bottom: 1px solid var(--border);
+        font-size: 13px;
+      }
+      .reveal-row.header { color: var(--dim); font-size: 11px; text-transform: uppercase; }
+      .check { color: var(--good); font-weight: 700; }
+      .x { color: var(--bad); font-weight: 700; }
+      details { margin-top: 12px; }
+      summary { cursor: pointer; color: var(--dim); font-size: 12px; }
+    </style>
+  </head>
+  <body>
+    <main>
+      <h1>Sealed</h1>
+      <div class="tag">salary disclosure circles · TEE-sealed · attested</div>
+
+      <div class="panel" id="status-panel">
+        <h2>Status</h2>
+        <div id="status">loading...</div>
+      </div>
+
+      <div class="panel">
+        <h2>1. Pick or create a circle</h2>
+        <div class="row">
+          <div>
+            <label>Existing circle ID</label>
+            <input id="circle-id" placeholder="e.g. AB12cd" />
+            <button class="ghost" onclick="loadCircle()">Load</button>
+          </div>
+          <div>
+            <label>or create new (company / role / level)</label>
+            <input id="new-scope" placeholder="Google / SWE / L4" />
+            <button onclick="createCircle()">Create</button>
+          </div>
+        </div>
+        <div id="circle-info"></div>
+      </div>
+
+      <div class="panel" id="submit-panel" style="display: none">
+        <h2>2. Submit your disclosure</h2>
+        <div class="row">
+          <div>
+            <label>Pseudonym (your handle in this circle)</label>
+            <input id="handle" placeholder="dragon_jpeg" />
+          </div>
+          <div>
+            <label>Level</label>
+            <input id="level" placeholder="L4" />
+          </div>
+          <div>
+            <label>City</label>
+            <input id="city" placeholder="San Francisco" />
+          </div>
+          <div>
+            <label>Base salary (USD)</label>
+            <input id="base" type="number" placeholder="200000" />
+          </div>
+          <div>
+            <label>Bonus target %</label>
+            <input id="bonus" type="number" placeholder="15" />
+          </div>
+          <div>
+            <label>Signing bonus (USD)</label>
+            <input id="signing" type="number" placeholder="50000" />
+          </div>
+          <div>
+            <label>Equity grant total (USD)</label>
+            <input id="equity" type="number" placeholder="600000" />
+          </div>
+          <div>
+            <label>Vest years</label>
+            <input id="vest" type="number" step="0.5" placeholder="4" />
+          </div>
+        </div>
+        <label>Notes (optional)</label>
+        <textarea id="notes" rows="2" placeholder="New grad offer, accelerated grant in year 1"></textarea>
+        <button id="submit-btn" onclick="submitDisclosure()">Submit</button>
+        <div id="submit-result"></div>
+      </div>
+
+      <div class="panel" id="reveal-panel" style="display: none">
+        <h2>3. Reveal</h2>
+        <div id="reveal-content"></div>
+      </div>
+
+      <div class="panel" id="proof-panel" style="display: none">
+        <h2>Trust chain (See Proof)</h2>
+        <div id="proof-content"></div>
+      </div>
+    </main>
+
+    <script>
+      let currentCircleId = null;
+
+      async function refreshStatus() {
+        try {
+          const h = await fetch("/healthz").then((r) => r.json());
+          const v = await fetch("/verify").then((r) => r.json());
+          const cls = v.classifier.state;
+          const clsPill =
+            cls === "ready"
+              ? `<span class="pill good">classifier ready</span>`
+              : cls === "loading"
+              ? `<span class="pill warn">classifier loading…</span>`
+              : `<span class="pill bad">classifier ${cls}</span>`;
+          document.getElementById("status").innerHTML = `
+            ${clsPill}
+            <span class="pill">commit ${v.commit_sha.slice(0, 8)}</span>
+            <span class="pill">rubric ${v.rubric_version}</span>
+            <span class="pill">model ${v.classifier.model_sha256 ? v.classifier.model_sha256.slice(0, 12) + "…" : "unloaded"}</span>
+            <span class="pill">enclave ${typeof v.enclave_pubkey === "string" && v.enclave_pubkey.startsWith("0x") ? v.enclave_pubkey.slice(0, 10) + "…" : "no key"}</span>
+          `;
+        } catch (e) {
+          document.getElementById("status").textContent = "offline";
+        }
+      }
+
+      async function createCircle() {
+        const raw = document.getElementById("new-scope").value;
+        const [company, role, level] = raw.split("/").map((s) => s.trim());
+        if (!company || !role || !level) return alert("format: company / role / level");
+        const r = await fetch("/api/circles", {
+          method: "POST",
+          headers: { "content-type": "application/json" },
+          body: JSON.stringify({ scope: { company, role, level }, target_n: 3 }),
+        });
+        const c = await r.json();
+        currentCircleId = c.id;
+        document.getElementById("circle-id").value = c.id;
+        showCircle(c);
+      }
+
+      async function loadCircle() {
+        const id = document.getElementById("circle-id").value.trim();
+        if (!id) return;
+        const r = await fetch(`/api/circles/${id}`);
+        if (!r.ok) return alert("not found");
+        const c = await r.json();
+        currentCircleId = c.id;
+        showCircle(c);
+      }
+
+      function showCircle(c) {
+        document.getElementById("circle-info").innerHTML = `
+          <div style="margin-top: 12px; font-size: 13px;">
+            <span class="pill">id ${c.id}</span>
+            <span class="pill">${c.scope.company} / ${c.scope.role} / ${c.scope.level}</span>
+            <span class="pill">${c.valid_count}/${c.target_n} valid</span>
+            <span class="pill ${c.state === "open" ? "" : "good"}">${c.state}</span>
+          </div>
+        `;
+        document.getElementById("submit-panel").style.display = c.state === "open" ? "block" : "none";
+        if (c.state !== "open") loadReveal();
+      }
+
+      async function submitDisclosure() {
+        if (!currentCircleId) return alert("pick a circle first");
+        const btn = document.getElementById("submit-btn");
+        btn.disabled = true;
+        btn.textContent = "Classifying…";
+        const body = {
+          submitter_handle: document.getElementById("handle").value,
+          level: document.getElementById("level").value,
+          city: document.getElementById("city").value,
+          base_salary: Number(document.getElementById("base").value) || 0,
+          bonus_target_pct: Number(document.getElementById("bonus").value) || 0,
+          signing_bonus: Number(document.getElementById("signing").value) || 0,
+          equity_grant_usd: Number(document.getElementById("equity").value) || 0,
+          vest_years: Number(document.getElementById("vest").value) || 4,
+          notes: document.getElementById("notes").value,
+        };
+        try {
+          const r = await fetch(`/api/circles/${currentCircleId}/submit`, {
+            method: "POST",
+            headers: { "content-type": "application/json" },
+            body: JSON.stringify(body),
+          });
+          const res = await r.json();
+          const v = res.classifier;
+          const pill = res.status === "valid"
+            ? `<span class="pill good">accepted — score ${v.score}</span>`
+            : `<span class="pill bad">rejected — score ${v.score}</span>`;
+          document.getElementById("submit-result").innerHTML = `
+            <div style="margin-top: 12px;">
+              ${pill}
+              <div style="margin-top: 8px; color: var(--dim);">${v.reason}</div>
+            </div>
+          `;
+          showCircle(res.circle);
+        } catch (e) {
+          alert("submit failed: " + e.message);
+        }
+        btn.disabled = false;
+        btn.textContent = "Submit";
+      }
+
+      async function loadReveal() {
+        if (!currentCircleId) return;
+        const r = await fetch(`/api/circles/${currentCircleId}/reveal`);
+        if (!r.ok) return;
+        const data = await r.json();
+        document.getElementById("reveal-panel").style.display = "block";
+        const rows = data.submissions
+          .map(
+            (s) => `
+            <div class="reveal-row">
+              <div>${s.submitter_handle}</div>
+              <div>$${fmt(s.payload.base_salary)}</div>
+              <div>$${fmt(s.payload.equity_grant_usd)}/${s.payload.vest_years}y</div>
+              <div>${s.payload.city || "—"}</div>
+              <div>score ${s.classifier_score}</div>
+            </div>
+          `,
+          )
+          .join("");
+        document.getElementById("reveal-content").innerHTML = `
+          <div class="reveal-row header">
+            <div>handle</div><div>base</div><div>equity</div><div>city</div><div>score</div>
+          </div>
+          ${rows}
+          <div style="margin-top: 16px; color: var(--dim);">
+            Median base: $${fmt(data.aggregate.base_salary?.median ?? 0)}<br/>
+            Median total comp / year: $${fmt(data.aggregate.total_comp_annual?.median ?? 0)}
+          </div>
+          <button class="ghost" onclick="showProof(${JSON.stringify(JSON.stringify(data.attestation)).replace(/'/g, "&#39;")})">See proof</button>
+        `;
+      }
+
+      function showProof(attestationJSON) {
+        const a = JSON.parse(attestationJSON);
+        document.getElementById("proof-panel").style.display = "block";
+        fetch("/verify").then(r => r.json()).then(v => {
+          document.getElementById("proof-content").innerHTML = `
+            <div><span class="check">✓</span> Running code matches commit ${v.commit_sha}</div>
+            <div><span class="check">✓</span> Classifier weights sha256 ${v.classifier.model_sha256 || "(loading)"}</div>
+            <div><span class="check">✓</span> Rubric version ${v.rubric_version} (pinned in repo)</div>
+            <div><span class="check">✓</span> This reveal signed by enclave key ${a.enclave_pubkey}</div>
+            <div><span class="check">✓</span> Payload sha256 ${a.payload_sha256}</div>
+            <details>
+              <summary>raw attestation</summary>
+              <pre>${JSON.stringify(a, null, 2)}</pre>
+            </details>
+            <details>
+              <summary>raw /verify</summary>
+              <pre>${JSON.stringify(v, null, 2)}</pre>
+            </details>
+          `;
+        });
+      }
+
+      function fmt(n) {
+        return Math.round(n).toLocaleString();
+      }
+
+      refreshStatus();
+      setInterval(refreshStatus, 4000);
+    </script>
+  </body>
+</html>
