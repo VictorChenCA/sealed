@@ -27,7 +27,7 @@ verifyRouter.get("/", (_req, res) => {
       state: classifier.state,
     },
     enclave_pubkey: pubkey,
-    repo_url: "https://github.com/REPLACE_ME/sealed",
+    repo_url: "https://github.com/VictorChenCA/sealed",
     notes: [
       "This endpoint exposes the publicly-verifiable identity of this Sealed deployment.",
       "To verify: clone the repo at commit_sha, reproduce the build, confirm image digest matches the running deployment, and verify the model file's sha256 matches.",

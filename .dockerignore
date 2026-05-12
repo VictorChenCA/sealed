@@ -2,6 +2,10 @@ node_modules
 dist
 .git
 .env
+.env.deploy
 *.log
 .DS_Store
 README.md
+
+# Local model file is NOT shipped; build stage fetches from HuggingFace
+models/
