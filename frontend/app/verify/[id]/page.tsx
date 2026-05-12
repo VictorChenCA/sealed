@@ -1,136 +1,204 @@
 "use client";
 
-import useSWR from "swr";
+import { useState } from "react";
 import { useParams } from "next/navigation";
 import Link from "next/link";
+import useSWR from "swr";
 import { api } from "@/lib/api";
 import type { VerifyResponse, RevealResponse } from "@/lib/types";
-import { shorten } from "@/lib/utils";
+import { Hash, JsonBlock, Pill } from "@/components/atoms";
 import { SiteHeader } from "@/components/site-header";
 
 export default function VerifyPage() {
   const { id } = useParams<{ id: string }>();
-  const { data: v } = useSWR<VerifyResponse>("verify", api.verify, { refreshInterval: 8000 });
+  const showCircle = id && id !== "dashboard";
+
+  const { data: v } = useSWR<VerifyResponse>("verify", () => api.verify(), {
+    refreshInterval: 10_000,
+  });
   const { data: reveal } = useSWR<RevealResponse | null>(
-    id && id !== "dashboard" ? `reveal:${id}` : null,
+    showCircle ? `reveal:${id}` : null,
     () => api.reveal(id!).catch(() => null),
   );
+
+  const [rawOpen, setRawOpen] = useState(false);
+  const [copied, setCopied] = useState(false);
+
+  const cmd = `git clone https://github.com/VictorChenCA/sealed && cd sealed && bash scripts/verify-locally.sh https://34-178-145-214.nip.io`;
+  const copyCmd = () => {
+    navigator.clipboard?.writeText(cmd).catch(() => {});
+    setCopied(true);
+    setTimeout(() => setCopied(false), 1200);
+  };
+
+  if (!v) {
+    return (
+      <>
+        <SiteHeader />
+        <div className="app-shell">
+          <div className="card" style={{ padding: 40, color: "var(--muted)" }}>
+            Loading attestation surface…
+          </div>
+        </div>
+      </>
+    );
+  }
+
+  const items: Array<{
+    title: string;
+    sub: string;
+    hash: string | null;
+    hashLabel: string;
+    href: string;
+    hrefLabel: string;
+    ok: boolean;
+  }> = [
+    {
+      title: "Running code matches public source",
+      sub:
+        "EigenCompute built this image from the public repo at the recorded commit. The on-chain record commits to (commit SHA, image digest).",
+      hash: v.commit_sha,
+      hashLabel: "commit",
+      href: `${v.repo_url}/tree/${v.commit_sha}`,
+      hrefLabel: "View on GitHub",
+      ok: !!v.commit_sha && v.commit_sha !== "dev",
+    },
+    {
+      title: "Classifier model verified",
+      sub:
+        "Qwen 2.5 3B Instruct Q4_K_M, weights baked into the attested image. Sha256 matches HuggingFace's pinned revision.",
+      hash: v.classifier.model_sha256,
+      hashLabel: "model sha256",
+      href: `https://huggingface.co/Qwen/Qwen2.5-3B-Instruct-GGUF/blob/7dabda4d13d513e3e842b20f0d435c732f172cbe/qwen2.5-3b-instruct-q4_k_m.gguf`,
+      hrefLabel: "View on HuggingFace",
+      ok: v.classifier.state === "ready" && !!v.classifier.model_sha256,
+    },
+    {
+      title: `Rubric pinned at ${v.rubric_version}`,
+      sub:
+        "The classifier judges every submission in this circle against the same versioned rubric — public and auditable.",
+      hash: v.rubric_version,
+      hashLabel: "rubric",
+      href: `${v.repo_url}/blob/${v.commit_sha}/src/classifier/qwen.ts`,
+      hrefLabel: "View rubric source",
+      ok: !!v.rubric_version,
+    },
+    {
+      title: "Reveal signed by enclave key",
+      sub:
+        "Wallet derived inside the TDX enclave, sealed by KMS to this exact image digest. The private key cannot exist outside the chip.",
+      hash: typeof v.enclave_pubkey === "string" ? v.enclave_pubkey : null,
+      hashLabel: "enclave",
+      href: `https://sepolia.etherscan.io/address/${v.enclave_pubkey}`,
+      hrefLabel: "View on Sepolia Etherscan",
+      ok: typeof v.enclave_pubkey === "string" && v.enclave_pubkey.startsWith("0x"),
+    },
+  ];
+
+  const okCount = items.filter((i) => i.ok).length;
 
   return (
     <>
       <SiteHeader />
-      <main className="container py-12 max-w-3xl">
-        <Link href="/app" className="text-dim text-sm hover:text-text">← Back</Link>
-        <div className="mt-6">
-          <p className="text-xs uppercase tracking-[0.18em] text-dim mb-2 mono">Trust chain</p>
-          <h1 className="text-3xl font-semibold tracking-tight">See proof</h1>
-          <p className="text-dim mt-2 max-w-xl">
-            Four checks. Each verifiable by a third party with no trust in us.
-            If any one fails, treat the reveal as compromised.
-          </p>
+      <div className="app-shell">
+        <div className="crumb">
+          <Link href="/app" style={{ color: "inherit", textDecoration: "none" }}>
+            Dashboard
+          </Link>
+          <span style={{ margin: "0 8px", color: "var(--dim)" }}>/</span>
+          <span>Verify{showCircle ? ` · ${id}` : ""}</span>
         </div>
 
-        <div className="mt-10 space-y-4">
-          <CheckCard
-            n="01"
-            title="Running code matches public source"
-            value={v ? shorten(v.commit_sha, 10, 4) : "loading…"}
-            href={v ? `${v.repo_url}/tree/${v.commit_sha}` : undefined}
-            ok={!!v}
-            description="The ecloud build pipeline cloned this exact commit, built the image, and signed the provenance. Click to open the source at the verified commit."
-          />
-          <CheckCard
-            n="02"
-            title="Classifier model verified"
-            value={v?.classifier.model_sha256 ? shorten(v.classifier.model_sha256, 12, 6) : "loading…"}
-            href="https://huggingface.co/Qwen/Qwen2.5-3B-Instruct-GGUF/tree/7dabda4d13d513e3e842b20f0d435c732f172cbe"
-            ok={v?.classifier.state === "ready"}
-            description="The model weights inside the enclave hash to this sha256. The same hash is pinned in the public Dockerfile. Click to inspect the HuggingFace revision."
-          />
-          <CheckCard
-            n="03"
-            title="Rubric pinned"
-            value={v ? v.rubric_version : "loading…"}
-            href={v ? `${v.repo_url}/blob/${v.commit_sha}/src/classifier/qwen.ts` : undefined}
-            ok={!!v}
-            description="The classifier prompt is part of the audited source. Every submission across every circle is judged by the same rule set."
-          />
-          <CheckCard
-            n="04"
-            title="Reveal signed by enclave key"
-            value={v ? shorten(typeof v.enclave_pubkey === "string" ? v.enclave_pubkey : "—", 10, 6) : "loading…"}
-            href={
-              v && typeof v.enclave_pubkey === "string" && v.enclave_pubkey.startsWith("0x")
-                ? `https://sepolia.etherscan.io/address/${v.enclave_pubkey}`
-                : undefined
-            }
-            ok={!!v && typeof v.enclave_pubkey === "string" && v.enclave_pubkey.startsWith("0x")}
-            description="The key was generated inside the enclave's TPM and never leaves. Any client can verify the signature locally."
-          />
+        <div className="circle-hdr">
+          <div>
+            <div className="scope-line">TRUST CHAIN</div>
+            <h1>Four things you can verify without trusting us.</h1>
+            <p className="copy mt-8" style={{ maxWidth: "62ch" }}>
+              Every receipt below resolves to a public artifact. Click each hash to confirm it
+              independently — against GitHub, HuggingFace, the repo itself, and Sepolia.
+            </p>
+          </div>
+          <div className="flex gap-8">
+            <Pill tone={okCount === 4 ? "ok" : "warn"} dot>
+              {okCount} / 4 verified
+            </Pill>
+          </div>
         </div>
 
-        {reveal && (
-          <div className="mt-10 rounded-lg border border-border bg-panel p-6 text-sm">
-            <p className="text-xs uppercase tracking-[0.18em] text-dim mb-3 mono">This reveal&apos;s receipt</p>
-            <pre className="mono text-xs overflow-x-auto text-dim">
-{JSON.stringify(reveal.attestation, null, 2)}
-            </pre>
+        <div className="trust-chain">
+          {items.map((t, i) => (
+            <div key={i} className="trust-card">
+              <div className="check">{t.ok ? "✓" : "…"}</div>
+              <div>
+                <div className="title">
+                  <span className="mono" style={{ color: "var(--dim)", fontSize: 11, marginRight: 6 }}>
+                    0{i + 1}
+                  </span>
+                  {t.title}
+                </div>
+                <div className="sub">{t.sub}</div>
+                <div className="hash-line">
+                  <Hash value={t.hash ?? "—"} short={20} label={t.hashLabel} />
+                </div>
+              </div>
+              <div className="right">
+                <a
+                  href={t.href}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="btn ghost sm"
+                  style={{ textDecoration: "none" }}
+                >
+                  {t.hrefLabel} ↗
+                </a>
+              </div>
+            </div>
+          ))}
+        </div>
+
+        <div className="section-title">
+          <h3>Verify locally</h3>
+          <div className="meta">One command · idempotent · safe</div>
+        </div>
+        <p className="copy-dim" style={{ fontSize: 13, marginTop: -4 }}>
+          Re-runs the same checks in your shell: re-clones the repo at the commit, verifies the
+          model sha256 against the Dockerfile-pinned value, and checks the running deployment.
+        </p>
+        <div className="copy-cmd">
+          <span>
+            <span className="prompt">$</span>
+            {cmd}
+          </span>
+          <button className="btn ghost sm" onClick={copyCmd}>
+            {copied ? "✓ Copied" : "Copy"}
+          </button>
+        </div>
+
+        <div className="section-title">
+          <h3>Raw attestation</h3>
+          <button className="btn ghost sm" onClick={() => setRawOpen(!rawOpen)}>
+            {rawOpen ? "Hide" : "Expand"} {rawOpen ? "↑" : "↓"}
+          </button>
+        </div>
+        {rawOpen && (
+          <div style={{ display: "grid", gap: 12 }}>
+            <div>
+              <div className="eyebrow" style={{ marginBottom: 6 }}>
+                /verify response
+              </div>
+              <JsonBlock value={v} />
+            </div>
+            {reveal && (
+              <div>
+                <div className="eyebrow" style={{ marginBottom: 6 }}>
+                  Reveal attestation · {id}
+                </div>
+                <JsonBlock value={reveal.attestation} />
+              </div>
+            )}
           </div>
         )}
-
-        <div className="mt-10 rounded-lg border border-border bg-panel p-6">
-          <p className="text-xs uppercase tracking-[0.18em] text-dim mb-2 mono">Verify locally</p>
-          <p className="text-sm text-dim mb-4">
-            Don&apos;t trust this UI. Run the checks yourself on your own machine.
-          </p>
-          <pre className="mono text-xs bg-bg rounded-md p-3 border border-border overflow-x-auto">
-{`git clone https://github.com/VictorChenCA/sealed && cd sealed
-bash scripts/verify-locally.sh ${process.env.NEXT_PUBLIC_API_BASE_URL ?? "https://your-backend"}`}
-          </pre>
-        </div>
-      </main>
-    </>
-  );
-}
-
-function CheckCard({
-  n,
-  title,
-  value,
-  href,
-  ok,
-  description,
-}: {
-  n: string;
-  title: string;
-  value: string;
-  href?: string;
-  ok: boolean;
-  description: string;
-}) {
-  return (
-    <article className="rounded-lg border border-border bg-panel p-6">
-      <div className="flex items-start gap-4">
-        <div className={`mono text-xs pt-1 ${ok ? "text-good" : "text-dim"}`}>
-          {ok ? "✓" : "…"} {n}
-        </div>
-        <div className="flex-1">
-          <div className="font-medium">{title}</div>
-          <div className="text-dim text-sm mt-1 leading-relaxed">{description}</div>
-        </div>
-        {href ? (
-          <a
-            href={href}
-            target="_blank"
-            rel="noreferrer"
-            className="mono text-xs text-accent hover:underline whitespace-nowrap"
-          >
-            {value} ↗
-          </a>
-        ) : (
-          <div className="mono text-xs text-dim">{value}</div>
-        )}
       </div>
-    </article>
+    </>
   );
 }

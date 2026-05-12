@@ -2,157 +2,296 @@
 
 import Link from "next/link";
 import useSWR from "swr";
+import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { api } from "@/lib/api";
 import type { Circle } from "@/lib/types";
 import { SiteHeader } from "@/components/site-header";
+import { Pill, StateBadge } from "@/components/atoms";
 
 export default function DashboardPage() {
+  const { data, error, isLoading } = useSWR<Circle[]>("circles", () => api.listCircles(), {
+    refreshInterval: 5000,
+  });
+  const [showCreate, setShowCreate] = useState(false);
+  const [filter, setFilter] = useState("all");
+
+  const yourCircles = (data ?? []).filter((c) => c.state !== "open" || c.valid_count > 0);
+  const browseCircles = data ?? [];
+  const filtered = browseCircles.filter(
+    (c) => filter === "all" || c.scope.role.toLowerCase().includes(filter),
+  );
+
   return (
     <>
       <SiteHeader />
-      <main className="container py-12 max-w-5xl">
-        <Header />
-        <CircleList />
-      </main>
+      <div className="app-shell">
+        {showCreate && <CreateCircleSheet onClose={() => setShowCreate(false)} />}
+
+        <div className="page-head">
+          <div>
+            <div className="crumb">Dashboard</div>
+            <h1>Your circles</h1>
+          </div>
+          <div className="flex gap-8">
+            <Link href="/verify/dashboard" className="btn ghost" style={{ textDecoration: "none" }}>
+              How Sealed works
+            </Link>
+            <button className="btn accent" onClick={() => setShowCreate(true)}>
+              + New circle
+            </button>
+          </div>
+        </div>
+
+        {isLoading && <Skeleton />}
+        {error && (
+          <div className="card" style={{ padding: 16, color: "var(--bad)" }}>
+            Could not reach the enclave at <span className="mono">{process.env.NEXT_PUBLIC_API_BASE_URL ?? "(no API URL set)"}</span>.
+          </div>
+        )}
+
+        {!isLoading && !error && (
+          <>
+            <div className="circles-list">
+              {yourCircles.length === 0 && (
+                <div className="card" style={{ padding: 24, textAlign: "center", color: "var(--muted)" }}>
+                  No circles yet. Create one to begin.
+                </div>
+              )}
+              {yourCircles.map((c) => (
+                <CircleCard key={c.id} c={c} />
+              ))}
+            </div>
+
+            <div className="section-title">
+              <h3>Browse circles</h3>
+              <div className="meta">{browseCircles.length} public circles</div>
+            </div>
+
+            <div className="filter-bar">
+              <input placeholder="Search company, role, level…" />
+              {(["all", "swe", "ml", "design", "data"] as const).map((f) => (
+                <button
+                  key={f}
+                  className={"chip-filter" + (filter === f ? " on" : "")}
+                  onClick={() => setFilter(f)}
+                >
+                  {f === "all" ? "All roles" : f.toUpperCase()}
+                </button>
+              ))}
+            </div>
+
+            <table className="browse">
+              <thead>
+                <tr>
+                  <th>Scope</th>
+                  <th>City</th>
+                  <th>Progress</th>
+                  <th>State</th>
+                  <th style={{ textAlign: "right" }}></th>
+                </tr>
+              </thead>
+              <tbody>
+                {filtered.map((c) => (
+                  <BrowseRow key={c.id} c={c} />
+                ))}
+              </tbody>
+            </table>
+          </>
+        )}
+      </div>
     </>
   );
 }
 
-function Header() {
-  return (
-    <div className="flex items-end justify-between mb-10">
-      <div>
-        <p className="text-xs uppercase tracking-[0.18em] text-dim mb-2 mono">App</p>
-        <h1 className="text-3xl font-semibold tracking-tight">Circles</h1>
-      </div>
-      <CreateCircleButton />
-    </div>
-  );
-}
-
-function CreateCircleButton() {
-  const [open, setOpen] = useState(false);
-  const [company, setCompany] = useState("");
-  const [role, setRole] = useState("SWE");
-  const [level, setLevel] = useState("L4");
-  const [city, setCity] = useState("San Francisco");
-  const [target, setTarget] = useState(3);
-  const [busy, setBusy] = useState(false);
-
-  async function submit(e: React.FormEvent) {
-    e.preventDefault();
-    setBusy(true);
-    try {
-      const c = await api.createCircle({ company, role, level, city }, target);
-      window.location.href = `/app/circle/${c.id}`;
-    } catch (err) {
-      alert("Failed: " + (err instanceof Error ? err.message : err));
-    } finally {
-      setBusy(false);
-    }
-  }
-
-  if (!open) {
-    return (
-      <button
-        onClick={() => setOpen(true)}
-        className="rounded-md bg-accent text-accent-fg px-4 py-2 text-sm font-medium hover:opacity-90 transition"
-      >
-        New circle
-      </button>
-    );
-  }
-  return (
-    <form onSubmit={submit} className="rounded-lg border border-border bg-panel p-4 w-[420px] space-y-3">
-      <div className="grid grid-cols-2 gap-3">
-        <Field label="Company"><input className="input" value={company} onChange={(e) => setCompany(e.target.value)} placeholder="Google" required /></Field>
-        <Field label="Role"><input className="input" value={role} onChange={(e) => setRole(e.target.value)} required /></Field>
-        <Field label="Level"><input className="input" value={level} onChange={(e) => setLevel(e.target.value)} required /></Field>
-        <Field label="City"><input className="input" value={city} onChange={(e) => setCity(e.target.value)} /></Field>
-        <Field label="Threshold (N)"><input className="input" type="number" min={2} max={20} value={target} onChange={(e) => setTarget(Number(e.target.value))} /></Field>
-      </div>
-      <div className="flex gap-2 pt-2">
-        <button type="submit" disabled={busy} className="rounded-md bg-accent text-accent-fg px-4 py-1.5 text-sm font-medium hover:opacity-90 disabled:opacity-50">
-          {busy ? "Creating…" : "Create circle"}
-        </button>
-        <button type="button" onClick={() => setOpen(false)} className="text-sm text-dim hover:text-text">Cancel</button>
-      </div>
-    </form>
-  );
-}
-
-function Field({ label, children }: { label: string; children: React.ReactNode }) {
-  return (
-    <label className="block">
-      <span className="text-[11px] uppercase tracking-wider text-dim mb-1 block">{label}</span>
-      {children}
-    </label>
-  );
-}
-
-function CircleList() {
-  const { data, error, isLoading } = useSWR<Circle[]>("circles", api.listCircles, { refreshInterval: 5000 });
-
-  if (isLoading) return <Skeleton />;
-  if (error) return <div className="text-bad text-sm">Failed to load: {String(error)}</div>;
-  if (!data || data.length === 0) return <EmptyState />;
-
-  return (
-    <div className="space-y-2">
-      {data.map((c) => (
-        <CircleRow key={c.id} c={c} />
-      ))}
-    </div>
-  );
-}
-
-function CircleRow({ c }: { c: Circle }) {
+function CircleCard({ c }: { c: Circle }) {
   const pct = Math.round((c.valid_count / c.target_n) * 100);
   return (
-    <Link
-      href={`/app/circle/${c.id}`}
-      className="block rounded-lg border border-border bg-panel hover:bg-panel-2 transition p-4"
-    >
-      <div className="flex items-center justify-between gap-4">
-        <div className="flex items-center gap-4">
-          <span className="mono text-dim text-xs">{c.id}</span>
-          <span className="font-medium">{c.scope.company}</span>
-          <span className="text-dim text-sm">{c.scope.role} · {c.scope.level}{c.scope.city ? ` · ${c.scope.city}` : ""}</span>
+    <Link href={`/app/circle/${c.id}`} className="circle-card">
+      <div>
+        <div className="scope">
+          {c.scope.company} · {c.scope.role} · {c.scope.level}
+          <span className="id mono">/{c.id}</span>
         </div>
-        <div className="flex items-center gap-4">
-          <span className="text-xs text-dim mono">{c.valid_count}/{c.target_n}</span>
-          <StatePill state={c.state} />
+        <div className="sub">
+          {c.state === "revealed"
+            ? `revealed · ${c.valid_count} disclosures`
+            : c.state === "sealed"
+            ? `sealed · awaiting your read`
+            : `${c.target_n - c.valid_count} more to reveal`}
         </div>
       </div>
-      <div className="mt-3 h-1 rounded-full bg-border overflow-hidden">
-        <div className="h-full bg-accent transition-all" style={{ width: `${pct}%` }} />
+      <div className="progress">
+        <span>
+          {c.valid_count}/{c.target_n}
+        </span>
+        <div className="progress-bar">
+          <div className="fill" style={{ width: pct + "%" }} />
+        </div>
+      </div>
+      <div className="flex gap-8 items-center">
+        <StateBadge state={c.state} />
+        <span style={{ color: "var(--dim)" }}>›</span>
       </div>
     </Link>
   );
 }
 
-function StatePill({ state }: { state: Circle["state"] }) {
-  const color =
-    state === "revealed" ? "text-good border-good/40 bg-good/10" :
-    state === "sealed" ? "text-warn border-warn/40 bg-warn/10" :
-    "text-dim border-border bg-panel-2";
-  return <span className={`mono text-[10px] uppercase tracking-wider px-2 py-0.5 rounded-full border ${color}`}>{state}</span>;
+function BrowseRow({ c }: { c: Circle }) {
+  const router = useRouter();
+  return (
+    <tr onClick={() => router.push(`/app/circle/${c.id}`)}>
+      <td>
+        <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+          <span>
+            {c.scope.company} · {c.scope.role} · {c.scope.level}
+          </span>
+          <span className="id mono" style={{ color: "var(--dim)" }}>
+            /{c.id}
+          </span>
+        </div>
+      </td>
+      <td className="num" style={{ color: "var(--muted)" }}>
+        {c.scope.city ?? "—"}
+      </td>
+      <td>
+        <div style={{ display: "flex", alignItems: "center", gap: 10, maxWidth: 200 }}>
+          <span className="mono" style={{ fontSize: 12 }}>
+            {c.valid_count}/{c.target_n}
+          </span>
+          <div className="progress-bar" style={{ flex: 1 }}>
+            <div className="fill" style={{ width: (c.valid_count / c.target_n) * 100 + "%" }} />
+          </div>
+        </div>
+      </td>
+      <td>
+        <StateBadge state={c.state} />
+      </td>
+      <td style={{ textAlign: "right", color: "var(--dim)" }}>›</td>
+    </tr>
+  );
 }
 
-function EmptyState() {
+function CreateCircleSheet({ onClose }: { onClose: () => void }) {
+  const router = useRouter();
+  const [company, setCompany] = useState("Google");
+  const [role, setRole] = useState("SWE");
+  const [level, setLevel] = useState("L4");
+  const [city, setCity] = useState("San Francisco");
+  const [targetN, setTargetN] = useState(3);
+  const [busy, setBusy] = useState(false);
+
+  async function create() {
+    setBusy(true);
+    try {
+      const c = await api.createCircle({ company, role, level, city }, targetN);
+      router.push(`/app/circle/${c.id}`);
+    } catch (err) {
+      alert("Failed: " + (err instanceof Error ? err.message : err));
+      setBusy(false);
+    }
+  }
+
   return (
-    <div className="rounded-lg border border-dashed border-border p-12 text-center">
-      <p className="text-dim text-sm">No circles yet. Create one to begin.</p>
+    <div
+      style={{
+        position: "fixed",
+        inset: 0,
+        zIndex: 200,
+        background: "color-mix(in oklch, var(--bg) 75%, transparent)",
+        backdropFilter: "blur(6px)",
+        display: "flex",
+        justifyContent: "flex-end",
+      }}
+      onClick={onClose}
+    >
+      <div
+        onClick={(e) => e.stopPropagation()}
+        style={{
+          width: 460,
+          height: "100%",
+          background: "var(--surface-1)",
+          borderLeft: "1px solid var(--border-2)",
+          padding: 32,
+          overflowY: "auto",
+        }}
+      >
+        <div className="eyebrow">New circle</div>
+        <h2 className="h-2" style={{ marginTop: 8 }}>
+          Define the scope
+        </h2>
+        <p className="copy-dim" style={{ fontSize: 13, marginTop: 8 }}>
+          Only people who fit the scope should join. The classifier uses it as the rubric basis.
+        </p>
+        <div className="form-grid" style={{ marginTop: 22 }}>
+          <div className="field">
+            <label>Company</label>
+            <input value={company} onChange={(e) => setCompany(e.target.value)} placeholder="Google" />
+          </div>
+          <div className="field">
+            <label>Role</label>
+            <input value={role} onChange={(e) => setRole(e.target.value)} placeholder="SWE" />
+          </div>
+          <div className="field">
+            <label>Level</label>
+            <input value={level} onChange={(e) => setLevel(e.target.value)} placeholder="L4" />
+          </div>
+          <div className="field">
+            <label>City (optional)</label>
+            <input value={city} onChange={(e) => setCity(e.target.value)} placeholder="Mountain View" />
+          </div>
+          <div className="field full">
+            <label>
+              Target N{" "}
+              <span style={{ color: "var(--dim)" }}>
+                · reveal when this many valid submissions accumulate
+              </span>
+            </label>
+            <input
+              type="number"
+              value={targetN}
+              onChange={(e) => setTargetN(Number(e.target.value))}
+              min={2}
+              max={20}
+            />
+          </div>
+        </div>
+        <div className="flex gap-8 mt-24">
+          <button className="btn accent" disabled={busy} onClick={create}>
+            {busy ? "Creating…" : "Create circle"}
+          </button>
+          <button className="btn ghost" onClick={onClose}>
+            Cancel
+          </button>
+        </div>
+      </div>
     </div>
   );
 }
 
 function Skeleton() {
   return (
-    <div className="space-y-2">
+    <div className="circles-list">
       {[0, 1, 2].map((i) => (
-        <div key={i} className="rounded-lg border border-border bg-panel h-20 animate-pulse" />
+        <div
+          key={i}
+          className="circle-card"
+          style={{ pointerEvents: "none", animation: "pulse 1.4s ease-in-out infinite" }}
+        >
+          <div>
+            <div className="scope" style={{ color: "var(--surface-3)" }}>
+              ████████ · ███ · ██
+            </div>
+            <div className="sub">loading…</div>
+          </div>
+          <div className="progress">
+            <span>—/—</span>
+            <div className="progress-bar" style={{ width: 120 }}>
+              <div className="fill" style={{ width: "30%" }} />
+            </div>
+          </div>
+          <Pill>—</Pill>
+        </div>
       ))}
     </div>
   );

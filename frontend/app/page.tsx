@@ -1,141 +1,309 @@
+"use client";
+
 import Link from "next/link";
+import { usePrivy } from "@privy-io/react-auth";
+import { Hash } from "@/components/atoms";
 import { SiteHeader } from "@/components/site-header";
+
+const COMMIT_SHA = "acc0545c6be0b29ab2eb35b441faec5504dc30c4";
+const MODEL_SHA =
+  "626b4a6678b86442240e33df819e00132d3ba7dddfe1cdc4fbb18e0a9615c62d";
+const ENCLAVE_PUBKEY = "0x850cDA18d259FD6735d862Dea6731e2616e1cfdE";
 
 export default function LandingPage() {
   return (
-    <>
+    <div className="page-landing">
       <SiteHeader />
-      <main>
-        <Hero />
-        <TrustReceipts />
-        <HowItWorks />
-        <Footer />
-      </main>
-    </>
+
+      <section className="hero">
+        <div>
+          <HeroEyebrow />
+          <h1 className="h-display" style={{ marginTop: 20 }}>
+            The salary conversation that doesn&apos;t happen — because no one shares first.
+          </h1>
+          <p className="lede" style={{ marginTop: 22 }}>
+            Sealed runs inside a hardware enclave. Submissions stay unreadable — even to us —
+            until N validated entries accumulate. Then everyone reveals at once, signed by a key
+            that only exists inside the chip.
+          </p>
+          <CtaRow />
+          <div className="hero-stats">
+            <div className="hero-stat">
+              <div className="num">3–5</div>
+              <div className="lbl">People per circle</div>
+            </div>
+            <div className="hero-stat">
+              <div className="num">Qwen 2.5 3B</div>
+              <div className="lbl">Classifier in enclave</div>
+            </div>
+            <div className="hero-stat">
+              <div className="num">0</div>
+              <div className="lbl">Operator reads, ever</div>
+            </div>
+          </div>
+        </div>
+        <HeroVisual />
+      </section>
+
+      <ProblemSection />
+      <MechanismSection />
+      <ReceiptsSection />
+
+      <div className="footer">
+        <div className="footer-inner">
+          <div>SEALED · v1.0 · MIT · sepolia</div>
+          <div>
+            <Link href="/verify/dashboard">Verify a reveal</Link>
+            <a href="https://github.com/VictorChenCA/sealed" target="_blank" rel="noreferrer">
+              GitHub ↗
+            </a>
+            <a
+              href="https://verify-sepolia.eigencloud.xyz/app/0x01B009899E66b52CF2295b8F79C3fc4E624c0A64"
+              target="_blank"
+              rel="noreferrer"
+            >
+              Ecloud verifier ↗
+            </a>
+          </div>
+        </div>
+      </div>
+    </div>
   );
 }
 
-function Hero() {
+function HeroEyebrow() {
   return (
-    <section className="relative overflow-hidden">
-      <div className="absolute inset-0 panel-grid opacity-30 pointer-events-none" />
-      <div className="container relative py-28 max-w-4xl">
-        <p className="text-xs uppercase tracking-[0.18em] text-dim mb-6 mono">
-          TEE-attested · Sepolia · v0.1
-        </p>
-        <h1 className="text-5xl md:text-6xl font-semibold tracking-tight leading-[1.05]">
-          The salary conversation
-          <br />
-          <span className="text-dim">no one starts.</span>
-        </h1>
-        <p className="mt-8 text-lg text-dim max-w-2xl leading-relaxed">
-          Pay opacity isn&apos;t a privacy problem. It&apos;s a coordination failure.
-          Whoever shares first gives everything away and learns nothing.
-          Sealed runs the disclosure inside an Intel TDX enclave —
-          your numbers stay invisible to everyone, including us,
-          until a quorum has each submitted.
-        </p>
-        <div className="mt-10 flex gap-3">
-          <Link
-            href="/app"
-            className="rounded-md bg-accent text-accent-fg px-5 py-2.5 text-sm font-medium hover:opacity-90 transition"
-          >
-            Open the app
-          </Link>
-          <a
-            href="https://github.com/VictorChenCA/sealed"
-            target="_blank"
-            rel="noreferrer"
-            className="rounded-md border border-border px-5 py-2.5 text-sm hover:bg-panel transition"
-          >
-            View source ↗
-          </a>
+    <div className="hero-eye">
+      <span className="dot">●</span>
+      <span>Live on EigenCompute · Intel TDX · Sepolia</span>
+    </div>
+  );
+}
+
+function CtaRow() {
+  const privyAvailable =
+    !!process.env.NEXT_PUBLIC_PRIVY_APP_ID && !process.env.NEXT_PUBLIC_PRIVY_APP_ID.startsWith("your-");
+  if (privyAvailable) {
+    return <PrivyCta />;
+  }
+  return (
+    <div className="hero-cta">
+      <Link className="btn lg accent" href="/app" style={{ textDecoration: "none" }}>
+        Open the app
+      </Link>
+      <Link className="btn lg ghost" href="/verify/dashboard" style={{ textDecoration: "none" }}>
+        How the proof works →
+      </Link>
+    </div>
+  );
+}
+
+function PrivyCta() {
+  const { login, authenticated } = usePrivy();
+  return (
+    <div className="hero-cta">
+      {authenticated ? (
+        <Link className="btn lg accent" href="/app" style={{ textDecoration: "none" }}>
+          Open the app
+        </Link>
+      ) : (
+        <button className="btn lg accent" onClick={login}>
+          Start a circle
+        </button>
+      )}
+      <Link className="btn lg ghost" href="/verify/dashboard" style={{ textDecoration: "none" }}>
+        How the proof works →
+      </Link>
+    </div>
+  );
+}
+
+function HeroVisual() {
+  return (
+    <div className="hero-visual" aria-hidden="true">
+      <div className="vh">
+        <div className="lights">
+          <span />
+          <span />
+          <span />
+        </div>
+        <span style={{ marginLeft: 6 }}>circle://google/swe/L4 · 2 of 3 sealed</span>
+      </div>
+      <div className="vb">
+        <ul className="ring">
+          <li className="sealed">
+            <span className="num">01</span>
+            <span>
+              <span style={{ color: "var(--muted)" }}>dragon_jpeg</span> · base{" "}
+              <span className="val">$204,000</span> · equity <span className="val">$612,000</span>
+            </span>
+            <span className="seal">⬢ sealed</span>
+          </li>
+          <li className="sealed">
+            <span className="num">02</span>
+            <span>
+              <span style={{ color: "var(--muted)" }}>harbor_owl</span> · base{" "}
+              <span className="val">$218,000</span> · equity <span className="val">$580,000</span>
+            </span>
+            <span className="seal">⬢ sealed</span>
+          </li>
+          <li className="empty">
+            <span className="num">03</span>
+            <span>awaiting submission…</span>
+            <span>○ open</span>
+          </li>
+        </ul>
+        <div className="footnote">
+          <span>↑</span> commit <span className="hash" style={{ padding: "1px 5px" }}>
+            {COMMIT_SHA.slice(0, 8)}
+          </span>{" "}
+          · model <span className="hash" style={{ padding: "1px 5px" }}>
+            {MODEL_SHA.slice(0, 8)}…
+          </span>{" "}
+          · rubric <span className="hash" style={{ padding: "1px 5px" }}>v1.0</span>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function ProblemSection() {
+  return (
+    <section className="section">
+      <div className="section-hdr">
+        <div className="num">01 / The problem</div>
+        <div>
+          <div className="eyebrow" style={{ marginBottom: 8 }}>
+            Coordination failure
+          </div>
+          <h2 className="h-1">A market that won&apos;t clear because no one moves first.</h2>
+        </div>
+      </div>
+      <div className="grid-3">
+        <div className="feature">
+          <div className="ico">↓</div>
+          <h4>$100B/yr in wage opacity</h4>
+          <p>
+            The asymmetry isn&apos;t between you and HR — it&apos;s between you and the four other
+            people at your level on your team.
+          </p>
+        </div>
+        <div className="feature">
+          <div className="ico">⇆</div>
+          <h4>Aggregates miss the room</h4>
+          <p>
+            Levels.fyi tells you the band. It can&apos;t tell you what your two peers and the new
+            hire actually have.
+          </p>
+        </div>
+        <div className="feature">
+          <div className="ico">✕</div>
+          <h4>Group chats leak</h4>
+          <p>
+            The first to share gives everything away and learns nothing. Trust collapses before
+            anyone types.
+          </p>
         </div>
       </div>
     </section>
   );
 }
 
-function TrustReceipts() {
-  const receipts = [
-    {
-      n: "01",
-      title: "Source matches running code",
-      body:
-        "Every deployment is built from a pinned commit in the public GitHub repo. The on-chain record commits to (commit SHA, image digest). You can re-clone and re-build to confirm.",
-    },
-    {
-      n: "02",
-      title: "Submissions are unreadable until reveal",
-      body:
-        "The operator (us, EigenCloud, any human) cannot read your number before the threshold is met. Intel TDX hardware enforces the seal in silicon — not a promise in a privacy policy.",
-    },
-    {
-      n: "03",
-      title: "Every reveal is signed by the enclave",
-      body:
-        "When the reveal happens, it&apos;s signed by a key that was generated inside the enclave and never leaves. Any client can verify the signature without trusting us.",
-    },
-  ];
+function MechanismSection() {
   return (
-    <section className="border-t border-border bg-panel/30">
-      <div className="container py-24 max-w-5xl">
-        <p className="text-xs uppercase tracking-[0.18em] text-dim mb-3 mono">Trust receipts</p>
-        <h2 className="text-3xl font-semibold tracking-tight mb-12">Three things you can verify yourself.</h2>
-        <div className="grid md:grid-cols-3 gap-6">
-          {receipts.map((r) => (
-            <article key={r.n} className="rounded-lg border border-border bg-panel p-6">
-              <div className="text-dim mono text-xs mb-4">{r.n}</div>
-              <h3 className="font-semibold mb-2">{r.title}</h3>
-              <p className="text-dim text-sm leading-relaxed" dangerouslySetInnerHTML={{ __html: r.body }} />
-            </article>
-          ))}
+    <section className="section">
+      <div className="section-hdr">
+        <div className="num">02 / The mechanism</div>
+        <div>
+          <div className="eyebrow" style={{ marginBottom: 8 }}>
+            Hardware-enforced privacy
+          </div>
+          <h2 className="h-1">Sealed inside the chip. Released when the threshold breaks.</h2>
+          <p className="copy mt-12" style={{ maxWidth: "56ch" }}>
+            Submissions are encrypted to a key that exists only inside an Intel TDX enclave on
+            EigenCompute. A classifier — Qwen 2.5 3B, weights baked into the attested image —
+            judges each one against a public rubric. Reveals are signed by the enclave; the
+            operator can&apos;t peek, edit, or front-run.
+          </p>
+        </div>
+      </div>
+      <div className="grid-3">
+        <div className="feature">
+          <div className="ico">1</div>
+          <h4>Encrypt on submit</h4>
+          <p>
+            The browser seals your disclosure to a public key derived inside the enclave. Bytes
+            leave you encrypted.
+          </p>
+        </div>
+        <div className="feature">
+          <div className="ico">2</div>
+          <h4>Classify in enclave</h4>
+          <p>
+            The model decrypts, scores against the rubric, and re-seals. Verdict comes out; numbers
+            don&apos;t.
+          </p>
+        </div>
+        <div className="feature">
+          <div className="ico">3</div>
+          <h4>Atomic reveal</h4>
+          <p>
+            When N submissions validate, the enclave signs the full set with its private key.
+            Everyone unlocks together.
+          </p>
         </div>
       </div>
     </section>
   );
 }
 
-function HowItWorks() {
-  const steps = [
-    { n: "1", t: "Create or join a circle", d: "Pick a scope: company, role, level, city. Set N (default 5)." },
-    { n: "2", t: "Submit privately", d: "Your numbers go into the enclave. A model validates plausibility against the public rubric." },
-    { n: "3", t: "Wait for the quorum", d: "While N-1 others are submitting, no one can see anyone's number — including us." },
-    { n: "4", t: "Reveal, atomically", d: "When the Nth validated submission lands, everyone unlocks at once. The enclave signs the payload." },
-    { n: "5", t: "Verify", d: "Click 'See proof'. The verifier checks the running code, the model hash, and the signature live in your browser." },
-  ];
+function ReceiptsSection() {
   return (
-    <section className="border-t border-border">
-      <div className="container py-24 max-w-3xl">
-        <p className="text-xs uppercase tracking-[0.18em] text-dim mb-3 mono">How it works</p>
-        <h2 className="text-3xl font-semibold tracking-tight mb-12">Five steps, no platform trust.</h2>
-        <ol className="space-y-6">
-          {steps.map((s) => (
-            <li key={s.n} className="flex gap-5 border-b border-border/50 pb-6 last:border-0">
-              <div className="mono text-dim w-6 shrink-0">{s.n}</div>
-              <div>
-                <div className="font-medium mb-1">{s.t}</div>
-                <div className="text-dim text-sm leading-relaxed">{s.d}</div>
-              </div>
-            </li>
-          ))}
-        </ol>
-      </div>
-    </section>
-  );
-}
-
-function Footer() {
-  return (
-    <footer className="border-t border-border">
-      <div className="container py-10 flex flex-col md:flex-row gap-4 md:items-center md:justify-between text-sm text-dim">
-        <div>Sealed · Built for EigenCloud Private Preview · Sepolia</div>
-        <div className="flex gap-5">
-          <a href="https://github.com/VictorChenCA/sealed" target="_blank" rel="noreferrer" className="hover:text-text">Repo</a>
-          <Link href="/verify/dashboard" className="hover:text-text">Verifier</Link>
-          <a href="https://docs.eigencloud.xyz" target="_blank" rel="noreferrer" className="hover:text-text">EigenCloud docs</a>
+    <section className="section">
+      <div className="section-hdr">
+        <div className="num">03 / The receipts</div>
+        <div>
+          <div className="eyebrow" style={{ marginBottom: 8 }}>
+            Every reveal is inspectable
+          </div>
+          <h2 className="h-1">Three things you can verify, without trusting us.</h2>
         </div>
       </div>
-    </footer>
+      <div className="receipts">
+        <div className="receipt">
+          <div className="check">✓</div>
+          <div>
+            <div className="title">Running code matches public source</div>
+            <div className="sub">
+              EigenCompute built the image from this exact commit. The on-chain record commits to
+              (commit SHA, image digest).
+            </div>
+          </div>
+          <Hash value={COMMIT_SHA} short={12} link />
+        </div>
+        <div className="receipt">
+          <div className="check">✓</div>
+          <div>
+            <div className="title">Classifier model verified</div>
+            <div className="sub">
+              Qwen 2.5 3B Instruct Q4_K_M — weights baked into the image. Sha256 matches
+              HuggingFace&apos;s pinned revision.
+            </div>
+          </div>
+          <Hash value={MODEL_SHA} short={12} link />
+        </div>
+        <div className="receipt">
+          <div className="check">✓</div>
+          <div>
+            <div className="title">Reveal signed by enclave key</div>
+            <div className="sub">
+              A wallet derived inside the TDX enclave. Sealed by KMS to this specific image digest
+              — never exists outside.
+            </div>
+          </div>
+          <Hash value={ENCLAVE_PUBKEY} short={10} link />
+        </div>
+      </div>
+    </section>
   );
 }

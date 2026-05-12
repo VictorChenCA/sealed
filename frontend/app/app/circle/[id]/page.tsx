@@ -1,76 +1,154 @@
 "use client";
 
-import { useState } from "react";
-import { useParams } from "next/navigation";
+import { useEffect, useMemo, useRef, useState } from "react";
+import { useParams, useRouter } from "next/navigation";
 import Link from "next/link";
 import useSWR from "swr";
 import { api } from "@/lib/api";
 import type { Circle, RevealResponse, SubmissionPayload, SubmitResponse } from "@/lib/types";
-import { fmtUSD, shorten } from "@/lib/utils";
+import { fmtUSD, Hash, Pill, StateBadge } from "@/components/atoms";
 import { SiteHeader } from "@/components/site-header";
 
 export default function CirclePage() {
   const { id } = useParams<{ id: string }>();
-  const { data: circle, mutate } = useSWR<Circle>(id ? `circle:${id}` : null, () => api.getCircle(id!), { refreshInterval: 4000 });
+  const router = useRouter();
+  const { data: circle, mutate } = useSWR<Circle>(
+    id ? `circle:${id}` : null,
+    () => api.getCircle(id!),
+    { refreshInterval: 4000 },
+  );
+
+  if (!circle) {
+    return (
+      <>
+        <SiteHeader />
+        <div className="app-shell">
+          <div className="card" style={{ padding: 40, textAlign: "center", color: "var(--muted)" }}>
+            Loading circle…
+          </div>
+        </div>
+      </>
+    );
+  }
+
+  const subState =
+    circle.state === "revealed" || circle.state === "sealed"
+      ? "reveal"
+      : circle.valid_count === 0
+      ? "submit"
+      : "waiting";
 
   return (
     <>
       <SiteHeader />
-      <main className="container py-12 max-w-3xl">
-        <div className="mb-8">
-          <Link href="/app" className="text-dim text-sm hover:text-text">← All circles</Link>
+      <div className="app-shell">
+        <div className="crumb">
+          <Link href="/app" style={{ color: "inherit", textDecoration: "none" }}>
+            Dashboard
+          </Link>
+          <span style={{ margin: "0 8px", color: "var(--dim)" }}>/</span>
+          <span>
+            {circle.scope.company} · {circle.scope.role} · {circle.scope.level}
+          </span>
         </div>
-        {!circle ? (
-          <div className="rounded-lg border border-border bg-panel h-40 animate-pulse" />
-        ) : (
-          <>
-            <CircleHeader c={circle} />
-            {circle.state === "open" ? (
-              <SubmitForm circle={circle} onSubmitted={() => mutate()} />
-            ) : (
-              <RevealView circleId={circle.id} />
-            )}
-          </>
-        )}
-      </main>
+
+        <div className="circle-hdr">
+          <div>
+            <div className="scope-line">CIRCLE / {circle.id}</div>
+            <h1>
+              {circle.scope.company} · {circle.scope.role} · {circle.scope.level}
+            </h1>
+            <div className="meta-row">
+              <StateBadge state={circle.state} />
+              <Pill>target N = {circle.target_n}</Pill>
+              <Pill>
+                rubric{" "}
+                <span className="accent" style={{ marginLeft: 4 }}>
+                  {circle.rubric_version ?? "v1.0"}
+                </span>
+              </Pill>
+              <Pill dot tone="ok">
+                classifier ready
+              </Pill>
+            </div>
+          </div>
+          <div className="flex gap-8 items-center">
+            <button
+              className="btn ghost sm"
+              onClick={() => router.push(`/verify/${circle.id}`)}
+            >
+              Verify deployment
+            </button>
+          </div>
+        </div>
+
+        <Stepper sub={subState} />
+
+        {subState === "submit" && <SubmitForm circle={circle} onSubmitted={() => mutate()} />}
+        {subState === "waiting" && <WaitingState circle={circle} />}
+        {subState === "reveal" && <RevealView circleId={circle.id} />}
+      </div>
     </>
   );
 }
 
-function CircleHeader({ c }: { c: Circle }) {
-  const pct = Math.round((c.valid_count / c.target_n) * 100);
+function Stepper({ sub }: { sub: "submit" | "waiting" | "reveal" }) {
   return (
-    <div className="mb-10">
-      <p className="text-xs uppercase tracking-[0.18em] text-dim mb-2 mono">Circle {c.id}</p>
-      <h1 className="text-3xl font-semibold tracking-tight">
-        {c.scope.company} · {c.scope.role} · {c.scope.level}
-      </h1>
-      <div className="mt-2 text-dim">{c.scope.city}</div>
-      <div className="mt-6 flex items-center gap-3">
-        <div className="flex-1 h-2 rounded-full bg-border overflow-hidden">
-          <div className="h-full bg-accent transition-all duration-700" style={{ width: `${pct}%` }} />
-        </div>
-        <span className="mono text-sm text-dim">{c.valid_count}/{c.target_n}</span>
+    <div className="stepper">
+      <div className={"step " + (sub === "submit" ? "current" : "done")}>
+        <span className="pip">{sub === "submit" ? "1" : "✓"}</span> Submit
+      </div>
+      <div className="bar" />
+      <div className={"step " + (sub === "waiting" ? "current" : sub === "reveal" ? "done" : "")}>
+        <span className="pip">{sub === "reveal" ? "✓" : "2"}</span> Wait
+      </div>
+      <div className="bar" />
+      <div className={"step " + (sub === "reveal" ? "current" : "")}>
+        <span className="pip">3</span> Reveal
       </div>
     </div>
   );
 }
 
 function SubmitForm({ circle, onSubmitted }: { circle: Circle; onSubmitted: () => void }) {
-  const [handle, setHandle] = useState("");
-  const [base, setBase] = useState(200000);
+  const [handle, setHandle] = useState("dragon_jpeg");
+  const [level, setLevel] = useState(circle.scope.level);
+  const [city, setCity] = useState(circle.scope.city ?? "San Francisco");
+  const [base, setBase] = useState(204000);
   const [bonus, setBonus] = useState(15);
   const [signing, setSigning] = useState(50000);
-  const [equity, setEquity] = useState(500000);
+  const [equity, setEquity] = useState(612000);
   const [vest, setVest] = useState(4);
-  const [notes, setNotes] = useState("");
-  const [busy, setBusy] = useState(false);
-  const [verdict, setVerdict] = useState<SubmitResponse | null>(null);
+  const [notes, setNotes] = useState("New grad offer, standard 4-yr vest.");
 
-  async function onSubmit(e: React.FormEvent) {
-    e.preventDefault();
-    setBusy(true);
+  const [pending, setPending] = useState(false);
+  const [progress, setProgress] = useState(0);
+  const [verdict, setVerdict] = useState<SubmitResponse | null>(null);
+  const timer = useRef<ReturnType<typeof setInterval> | null>(null);
+
+  const STAGES = [
+    "Sealing payload",
+    "Submitting to enclave",
+    "Decrypting inside TDX",
+    "Running Qwen 2.5 3B",
+    "Recording verdict",
+  ];
+  const stageText = pending ? STAGES[Math.min(Math.floor(progress * STAGES.length), STAGES.length - 1)] : null;
+
+  async function submit() {
     setVerdict(null);
+    setPending(true);
+    setProgress(0);
+
+    let i = 0;
+    timer.current = setInterval(() => {
+      i++;
+      setProgress((prev) => Math.min(prev + 1 / STAGES.length, 0.95));
+      if (i >= STAGES.length) {
+        if (timer.current) clearInterval(timer.current);
+      }
+    }, 700);
+
     try {
       const payload: SubmissionPayload & { submitter_handle: string } = {
         submitter_handle: handle || `anon-${Math.floor(Math.random() * 9999)}`,
@@ -79,155 +157,393 @@ function SubmitForm({ circle, onSubmitted }: { circle: Circle; onSubmitted: () =
         signing_bonus: signing,
         equity_grant_usd: equity,
         vest_years: vest,
-        level: circle.scope.level,
-        city: circle.scope.city ?? "",
+        level,
+        city,
         notes,
       };
       const res = await api.submit(circle.id, payload);
-      setVerdict(res);
-      onSubmitted();
+      if (timer.current) clearInterval(timer.current);
+      setProgress(1);
+      setTimeout(() => {
+        setPending(false);
+        setVerdict(res);
+        if (res.status === "valid") onSubmitted();
+      }, 200);
     } catch (err) {
+      if (timer.current) clearInterval(timer.current);
+      setPending(false);
       alert("Submit failed: " + (err instanceof Error ? err.message : err));
-    } finally {
-      setBusy(false);
     }
   }
 
-  return (
-    <form onSubmit={onSubmit} className="rounded-lg border border-border bg-panel p-6 space-y-5">
-      <div className="grid grid-cols-2 gap-4">
-        <Field label="Pseudonym in this circle">
-          <input className="input" value={handle} onChange={(e) => setHandle(e.target.value)} placeholder="dragon_jpeg" />
-        </Field>
-        <Field label="Base salary (USD)">
-          <input className="input mono" type="number" value={base} onChange={(e) => setBase(Number(e.target.value))} required />
-        </Field>
-        <Field label="Bonus target %">
-          <input className="input mono" type="number" value={bonus} onChange={(e) => setBonus(Number(e.target.value))} />
-        </Field>
-        <Field label="Signing bonus (USD)">
-          <input className="input mono" type="number" value={signing} onChange={(e) => setSigning(Number(e.target.value))} />
-        </Field>
-        <Field label="Equity grant total (USD)">
-          <input className="input mono" type="number" value={equity} onChange={(e) => setEquity(Number(e.target.value))} required />
-        </Field>
-        <Field label="Vest years">
-          <input className="input mono" type="number" step="0.5" value={vest} onChange={(e) => setVest(Number(e.target.value))} required />
-        </Field>
-      </div>
-      <Field label="Notes (optional, stays inside the enclave)">
-        <textarea className="input" rows={2} value={notes} onChange={(e) => setNotes(e.target.value)} />
-      </Field>
-      <div className="flex items-center gap-3">
-        <button
-          type="submit"
-          disabled={busy}
-          className="rounded-md bg-accent text-accent-fg px-5 py-2 text-sm font-medium hover:opacity-90 disabled:opacity-50"
-        >
-          {busy ? "Validating in enclave (~5s)…" : "Submit (sealed)"}
-        </button>
-        <span className="text-xs text-dim">
-          Qwen 2.5 3B running inside the TDX enclave will judge plausibility.
-        </span>
-      </div>
+  function simulateReject() {
+    setBase(50000);
+    setTimeout(() => submit(), 50);
+  }
 
-      {verdict && <VerdictBox v={verdict} />}
-    </form>
-  );
-}
+  useEffect(() => () => {
+    if (timer.current) clearInterval(timer.current);
+  }, []);
 
-function VerdictBox({ v }: { v: SubmitResponse }) {
-  const ok = v.status === "valid";
   return (
-    <div
-      className={`rounded-md border p-4 text-sm animate-fade-up ${
-        ok ? "border-good/40 bg-good/10" : "border-bad/40 bg-bad/10"
-      }`}
-    >
-      <div className="flex items-center gap-2 font-medium mb-1">
-        <span className={ok ? "text-good" : "text-bad"}>{ok ? "✓ Accepted" : "✗ Rejected"}</span>
-        <span className="text-dim mono text-xs">score {v.classifier.score}</span>
+    <div className="card">
+      <div className="card-hdr">
+        <div className="flex items-center gap-8">
+          <h3>Submit your disclosure</h3>
+          <Pill>encrypted client-side to enclave</Pill>
+        </div>
+        <Pill tone="ok" dot>
+          classifier ready
+        </Pill>
       </div>
-      <div className="text-dim">{v.classifier.reason}</div>
+      <div className="card-body">
+        <div className="form-grid">
+          <div className="field">
+            <label>
+              Pseudonym <span style={{ color: "var(--dim)" }}>· shown in reveal</span>
+            </label>
+            <input value={handle} onChange={(e) => setHandle(e.target.value)} />
+          </div>
+          <div className="field">
+            <label>Level</label>
+            <input value={level} onChange={(e) => setLevel(e.target.value)} />
+          </div>
+          <div className="field">
+            <label>City</label>
+            <input value={city} onChange={(e) => setCity(e.target.value)} />
+          </div>
+          <div className="field">
+            <label>Vest years</label>
+            <input
+              type="number"
+              step={0.5}
+              value={vest}
+              onChange={(e) => setVest(Number(e.target.value))}
+            />
+          </div>
+          <div className="field">
+            <label>Base salary</label>
+            <div className="input-prefix">
+              <span>$</span>
+              <input type="number" value={base} onChange={(e) => setBase(Number(e.target.value))} />
+            </div>
+          </div>
+          <div className="field">
+            <label>Bonus target</label>
+            <div className="input-prefix">
+              <span>%</span>
+              <input type="number" value={bonus} onChange={(e) => setBonus(Number(e.target.value))} />
+            </div>
+          </div>
+          <div className="field">
+            <label>Signing bonus</label>
+            <div className="input-prefix">
+              <span>$</span>
+              <input
+                type="number"
+                value={signing}
+                onChange={(e) => setSigning(Number(e.target.value))}
+              />
+            </div>
+          </div>
+          <div className="field">
+            <label>
+              Equity grant <span style={{ color: "var(--dim)" }}>· total</span>
+            </label>
+            <div className="input-prefix">
+              <span>$</span>
+              <input
+                type="number"
+                value={equity}
+                onChange={(e) => setEquity(Number(e.target.value))}
+              />
+            </div>
+          </div>
+          <div className="field full">
+            <label>
+              Notes <span style={{ color: "var(--dim)" }}>· optional, classifier-readable</span>
+            </label>
+            <textarea rows={2} value={notes} onChange={(e) => setNotes(e.target.value)} />
+          </div>
+        </div>
+
+        {pending && (
+          <div
+            className="mt-24"
+            style={{
+              padding: "16px 18px",
+              border: "1px solid var(--border)",
+              background: "var(--surface-0)",
+              borderRadius: 10,
+            }}
+          >
+            <div className="flex items-center gap-12">
+              <div
+                style={{
+                  width: 14,
+                  height: 14,
+                  borderRadius: "50%",
+                  border: "2px solid var(--surface-3)",
+                  borderTopColor: "var(--accent)",
+                  animation: "spin 0.8s linear infinite",
+                }}
+              />
+              <div style={{ flex: 1 }}>
+                <div style={{ fontSize: 13, color: "var(--text)" }}>{stageText}…</div>
+                <div
+                  style={{
+                    fontFamily: "var(--mono)",
+                    fontSize: 11,
+                    color: "var(--dim)",
+                    marginTop: 4,
+                  }}
+                >
+                  3–8s typical · classifier runs locally inside TDX
+                </div>
+              </div>
+              <div className="mono" style={{ fontSize: 11, color: "var(--muted)" }}>
+                {Math.round(progress * 100)}%
+              </div>
+            </div>
+            <div className="progress-bar" style={{ marginTop: 12, height: 3 }}>
+              <div
+                className="fill"
+                style={{ width: progress * 100 + "%", transition: "width 0.4s ease" }}
+              />
+            </div>
+          </div>
+        )}
+
+        {verdict && (
+          <div className={"verdict " + (verdict.status === "valid" ? "ok" : "bad")}>
+            <div className="icon">{verdict.status === "valid" ? "✓" : "✕"}</div>
+            <div>
+              <div className="title">
+                {verdict.status === "valid"
+                  ? "Accepted & sealed"
+                  : "Rejected — submission did not pass the rubric"}
+              </div>
+              <div className="reason">{verdict.classifier.reason}</div>
+              <div className="score">
+                <span>classifier score</span>
+                <span className="hash">{verdict.classifier.score}</span>
+                <span style={{ color: "var(--dim)" }}>·</span>
+                <span>rubric v1.0</span>
+                <span style={{ color: "var(--dim)" }}>·</span>
+                <span>signed inside enclave</span>
+              </div>
+              {verdict.status === "rejected" && (
+                <button className="btn ghost sm mt-12" onClick={() => setVerdict(null)}>
+                  Revise & resubmit
+                </button>
+              )}
+            </div>
+          </div>
+        )}
+      </div>
+      <div className="card-foot">
+        <div className="copy-dim" style={{ fontSize: 12 }}>
+          Once accepted, your numbers are unreadable — even to the operator — until {circle.target_n}{" "}
+          valid submissions accumulate.
+        </div>
+        <div className="flex gap-8">
+          <button className="btn ghost sm" onClick={simulateReject} disabled={pending}>
+            Simulate reject
+          </button>
+          <button className="btn accent" onClick={submit} disabled={pending}>
+            {pending ? "Classifying…" : "Seal & submit"}
+          </button>
+        </div>
+      </div>
     </div>
   );
 }
 
-function Field({ label, children }: { label: string; children: React.ReactNode }) {
+function WaitingState({ circle }: { circle: Circle }) {
   return (
-    <label className="block">
-      <span className="text-[11px] uppercase tracking-wider text-dim mb-1 block">{label}</span>
-      {children}
-    </label>
+    <div className="waiting">
+      <div className="lockup">
+        <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
+          <rect x="4" y="11" width="16" height="10" rx="2" />
+          <path d="M8 11 V8 a4 4 0 0 1 8 0 v3" />
+          <circle cx="12" cy="16" r="1.2" fill="currentColor" />
+        </svg>
+      </div>
+      <div className="label">Sealed in enclave</div>
+      <div className="count-big">
+        {circle.valid_count}
+        <span className="of"> / {circle.target_n}</span>
+      </div>
+      <div className="slots">
+        {Array.from({ length: circle.target_n }).map((_, i) => (
+          <div key={i} className={"slot" + (i < circle.valid_count ? " filled" : "")} />
+        ))}
+      </div>
+      <p className="copy">
+        Your disclosure is locked. {circle.target_n - circle.valid_count} more validated{" "}
+        {circle.target_n - circle.valid_count === 1 ? "submission" : "submissions"} to go. Neither
+        the operator nor anyone in this circle — including you — can read any value until the
+        threshold breaks.
+      </p>
+      <div className="flex gap-8 mt-24">
+        <button
+          className="btn ghost sm"
+          onClick={() => {
+            navigator.clipboard?.writeText(window.location.href);
+          }}
+        >
+          Copy invite link
+        </button>
+      </div>
+    </div>
   );
 }
 
 function RevealView({ circleId }: { circleId: string }) {
   const { data, error, isLoading } = useSWR<RevealResponse>(`reveal:${circleId}`, () => api.reveal(circleId));
-  if (isLoading) return <div className="rounded-lg border border-border bg-panel h-40 animate-pulse" />;
-  if (error) return <div className="text-bad text-sm">Failed to reveal: {String(error)}</div>;
-  if (!data) return null;
+  const router = useRouter();
+  const [revealed, setRevealed] = useState(false);
+  useEffect(() => {
+    const t = setTimeout(() => setRevealed(true), 350);
+    return () => clearTimeout(t);
+  }, [data]);
 
-  return (
-    <div className="space-y-6">
-      <div className="rounded-lg border border-border bg-panel overflow-hidden animate-fade-up">
-        <div className="grid grid-cols-5 text-[11px] uppercase tracking-wider text-dim px-5 py-3 border-b border-border">
-          <span>Handle</span><span>Base</span><span>Equity</span><span>Bonus %</span><span>Score</span>
-        </div>
-        {data.submissions.map((s, i) => (
-          <div
-            key={i}
-            className="grid grid-cols-5 px-5 py-4 border-b border-border last:border-0 animate-fade-up text-sm"
-            style={{ animationDelay: `${i * 80}ms` }}
-          >
-            <span className="mono">{s.submitter_handle}</span>
-            <span className="mono">{fmtUSD(s.payload.base_salary)}</span>
-            <span className="mono">{fmtUSD(s.payload.equity_grant_usd)}/{s.payload.vest_years}y</span>
-            <span className="mono">{s.payload.bonus_target_pct ?? 0}%</span>
-            <span className="mono text-good">{s.classifier_score}</span>
-          </div>
-        ))}
-      </div>
+  const totalCompMedian = useMemo(() => data?.aggregate.total_comp_annual?.median, [data]);
 
-      <div className="rounded-lg border border-border bg-panel p-6 animate-fade-up" style={{ animationDelay: "400ms" }}>
-        <p className="text-xs uppercase tracking-[0.18em] text-dim mb-2 mono">Aggregate</p>
-        <div className="grid grid-cols-2 gap-6">
-          <Stat label="Median base" value={fmtUSD(data.aggregate.base_salary?.median)} />
-          <Stat label="Median total comp / yr" value={fmtUSD(data.aggregate.total_comp_annual?.median)} />
-        </div>
-      </div>
+  if (isLoading) return <div className="card" style={{ padding: 40, color: "var(--muted)" }}>Loading reveal…</div>;
+  if (error || !data) return <div className="card" style={{ padding: 40, color: "var(--bad)" }}>Could not load reveal.</div>;
 
-      <div className="rounded-lg border border-accent/30 bg-accent/5 p-6 flex items-center justify-between animate-fade-up" style={{ animationDelay: "600ms" }}>
-        <div>
-          <div className="font-medium mb-1">Verify this reveal</div>
-          <div className="text-dim text-sm">Three checks. None require trusting us.</div>
-        </div>
-        <Link
-          href={`/verify/${circleId}`}
-          className="rounded-md bg-accent text-accent-fg px-5 py-2 text-sm font-medium hover:opacity-90"
-        >
-          See proof →
-        </Link>
-      </div>
+  const avgScore = data.submissions.length
+    ? data.submissions.reduce((acc, s) => acc + (s.classifier_score || 0), 0) / data.submissions.length
+    : 0;
 
-      <details className="rounded-lg border border-border bg-panel p-4 text-xs">
-        <summary className="cursor-pointer text-dim">raw attestation</summary>
-        <pre className="mono mt-4 overflow-x-auto text-dim">
-{JSON.stringify(data.attestation, null, 2)}
-        </pre>
-        <div className="mt-3 text-[11px] text-dim">
-          pubkey {shorten(data.attestation.enclave_pubkey, 10, 6)} · sig {shorten(data.attestation.signature, 10, 6)}
-        </div>
-      </details>
-    </div>
-  );
-}
-
-function Stat({ label, value }: { label: string; value: string }) {
   return (
     <div>
-      <div className="text-xs text-dim mb-1">{label}</div>
-      <div className="text-2xl mono">{value}</div>
+      <div className="reveal-banner">
+        <div>
+          <div className="title">Threshold met. Reveal signed.</div>
+          <div className="sub">
+            {data.aggregate.n} of {data.target_n} valid · attested by enclave
+            {data.revealed_at ? " · " + new Date(data.revealed_at).toUTCString().replace("GMT", "UTC") : ""}
+          </div>
+        </div>
+        <div className="flex gap-8 items-center">
+          <Hash value={data.attestation.signature} short={10} label="sig" link />
+          <button
+            className="btn accent"
+            onClick={() => router.push(`/verify/${circleId}`)}
+          >
+            See proof →
+          </button>
+        </div>
+      </div>
+
+      <div className="reveal-stats">
+        <div className="stat-cell">
+          <div className="lbl">Median base</div>
+          <div className="val">{fmtUSD(data.aggregate.base_salary?.median)}</div>
+          <div className="delta">
+            range {fmtUSD(data.aggregate.base_salary?.min, { short: true })} –{" "}
+            {fmtUSD(data.aggregate.base_salary?.max, { short: true })}
+          </div>
+        </div>
+        <div className="stat-cell">
+          <div className="lbl">Median total comp / yr</div>
+          <div className="val">{fmtUSD(totalCompMedian)}</div>
+          <div className="delta">
+            range {fmtUSD(data.aggregate.total_comp_annual?.min, { short: true })} –{" "}
+            {fmtUSD(data.aggregate.total_comp_annual?.max, { short: true })}
+          </div>
+        </div>
+        <div className="stat-cell">
+          <div className="lbl">Valid disclosures</div>
+          <div className="val">{data.aggregate.n}</div>
+          <div className="delta">avg classifier score {avgScore.toFixed(2)}</div>
+        </div>
+        <div className="stat-cell">
+          <div className="lbl">Rubric</div>
+          <div className="val">{data.rubric_version}</div>
+          <div className="delta">pinned in repo</div>
+        </div>
+      </div>
+
+      <div className="card">
+        <div className="card-hdr">
+          <h3>Submissions · side-by-side</h3>
+          <div className="copy-dim mono" style={{ fontSize: 11 }}>
+            {data.submissions.length} rows · signed by {data.attestation.enclave_pubkey.slice(0, 6)}…
+            {data.attestation.enclave_pubkey.slice(-4)}
+          </div>
+        </div>
+        <table className="reveal">
+          <thead>
+            <tr>
+              <th>Handle</th>
+              <th>Base</th>
+              <th>Bonus</th>
+              <th>Signing</th>
+              <th>Equity / vest</th>
+              <th>City</th>
+              <th>Score</th>
+            </tr>
+          </thead>
+          <tbody>
+            {data.submissions.map((s, i) => (
+              <tr
+                key={i}
+                style={{
+                  opacity: revealed ? 1 : 0,
+                  transform: revealed ? "translateY(0)" : "translateY(8px)",
+                  filter: revealed ? "blur(0)" : "blur(8px)",
+                  transition: `opacity 0.6s ease ${i * 0.12}s, transform 0.6s ease ${i * 0.12}s, filter 0.6s ease ${i * 0.12}s`,
+                }}
+              >
+                <td>
+                  <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                    <span
+                      style={{
+                        width: 18,
+                        height: 18,
+                        borderRadius: 4,
+                        background: [
+                          "oklch(0.72 0.12 30)",
+                          "oklch(0.74 0.12 160)",
+                          "oklch(0.72 0.12 270)",
+                          "oklch(0.74 0.12 70)",
+                          "oklch(0.72 0.12 200)",
+                        ][i % 5],
+                        opacity: 0.5,
+                      }}
+                    />
+                    <span className="mono">{s.submitter_handle}</span>
+                  </div>
+                </td>
+                <td className="num">{fmtUSD(s.payload.base_salary)}</td>
+                <td className="num">{s.payload.bonus_target_pct ?? 0}%</td>
+                <td className="num">{fmtUSD(s.payload.signing_bonus ?? 0)}</td>
+                <td className="num">
+                  {fmtUSD(s.payload.equity_grant_usd, { short: true })} / {s.payload.vest_years}y
+                </td>
+                <td style={{ color: "var(--muted)" }}>{s.payload.city}</td>
+                <td className="num">
+                  <Pill tone="ok">{Number(s.classifier_score).toFixed(2)}</Pill>
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+        <div className="card-foot">
+          <div className="flex items-center gap-12">
+            <Hash value={data.attestation.payload_sha256} short={14} label="payload sha256" />
+          </div>
+          <button
+            className="btn ghost sm"
+            onClick={() => router.push(`/verify/${circleId}`)}
+          >
+            Inspect attestation →
+          </button>
+        </div>
+      </div>
     </div>
   );
 }

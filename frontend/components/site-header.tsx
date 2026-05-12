@@ -2,43 +2,71 @@
 
 import Link from "next/link";
 import { usePrivy } from "@privy-io/react-auth";
+import { Pill } from "./atoms";
 
 export function SiteHeader() {
-  const privyAvailable = !!process.env.NEXT_PUBLIC_PRIVY_APP_ID && !process.env.NEXT_PUBLIC_PRIVY_APP_ID.startsWith("your-");
+  const privyAvailable =
+    !!process.env.NEXT_PUBLIC_PRIVY_APP_ID && !process.env.NEXT_PUBLIC_PRIVY_APP_ID.startsWith("your-");
   return (
-    <header className="border-b border-border bg-bg/80 backdrop-blur sticky top-0 z-20">
-      <div className="container flex items-center justify-between h-14">
-        <Link href="/" className="flex items-center gap-2 font-semibold tracking-tight">
-          <div className="size-6 rounded-md bg-accent/20 border border-accent/40 flex items-center justify-center">
-            <div className="size-2 rounded-sm bg-accent" />
-          </div>
-          <span>Sealed</span>
+    <div className="topbar">
+      <div className="topbar-inner">
+        <Link href="/" className="brand">
+          <span className="mark" />
+          <span>SEALED</span>
         </Link>
-        <nav className="flex items-center gap-5 text-sm text-dim">
-          <Link href="/app" className="hover:text-text transition">App</Link>
-          <a href="https://github.com/VictorChenCA/sealed" target="_blank" rel="noreferrer" className="hover:text-text transition">GitHub</a>
-          {privyAvailable ? <SignInButton /> : null}
-        </nav>
+        <div className="navlinks">
+          <Link href="/app">Dashboard</Link>
+          <Link href="/verify/dashboard">Verify</Link>
+          <a href="https://github.com/VictorChenCA/sealed" target="_blank" rel="noreferrer">
+            Repo&nbsp;↗
+          </a>
+        </div>
+        <div className="topbar-right">
+          <Pill dot tone="ok">
+            enclave online
+          </Pill>
+          {privyAvailable ? <PrivyAuthButton /> : <NoPrivyButtons />}
+        </div>
       </div>
-    </header>
+    </div>
   );
 }
 
-function SignInButton() {
+function PrivyAuthButton() {
   const { ready, authenticated, login, logout, user } = usePrivy();
   if (!ready) return null;
   if (!authenticated) {
     return (
-      <button onClick={login} className="rounded-md bg-accent text-accent-fg px-3 py-1.5 text-sm font-medium hover:opacity-90 transition">
-        Sign in
-      </button>
+      <>
+        <button className="btn ghost sm" onClick={login}>
+          Sign in
+        </button>
+        <button className="btn sm" onClick={login}>
+          Get started
+        </button>
+      </>
     );
   }
-  const handle = user?.email?.address ?? user?.google?.email ?? user?.wallet?.address ?? "you";
+  const handle =
+    user?.email?.address ??
+    user?.google?.email ??
+    user?.wallet?.address ??
+    "you";
+  const short =
+    handle.length > 18 ? handle.slice(0, 8) + "…" + handle.slice(-4) : handle;
   return (
-    <div className="flex items-center gap-3">
-      <span className="text-xs text-dim mono">{handle.slice(0, 16)}…</span>
-      <button onClick={logout} className="text-xs text-dim hover:text-text transition">Sign out</button>
-    </div>
+    <button className="btn ghost sm" onClick={logout}>
+      <span className="mono" style={{ fontSize: 11, color: "var(--muted)" }}>
+        {short}
+      </span>
+    </button>
+  );
+}
+
+function NoPrivyButtons() {
+  return (
+    <Link href="/app" className="btn sm" style={{ textDecoration: "none" }}>
+      Open app
+    </Link>
   );
 }
