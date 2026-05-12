@@ -50,14 +50,27 @@ docker build --platform linux/amd64 \
   -t sealed:latest .
 ```
 
-## Deploying to EigenCompute
+## Deploying to EigenCompute (verifiable build mode)
+
+This project is deployed with `--verifiable` mode, which means EigenCompute's
+own infrastructure builds the Docker image directly from this public GitHub
+repo at a specific commit. The on-chain record commits to (commit SHA,
+image digest), so anyone can re-clone, rebuild, and verify the digest matches.
 
 ```bash
-# Set environment first
-ecloud compute env set mainnet-alpha
-
-# Deploy. The CLI will build the image and push it to your registry.
-ecloud compute app deploy
+ecloud compute app deploy \
+  --force \
+  --name sealed \
+  --env-file .env.deploy \
+  --skip-profile \
+  --instance-type g1-standard-4t \
+  --environment sepolia \
+  --log-visibility public \
+  --resource-usage-monitoring enable \
+  --verifiable \
+  --repo https://github.com/VictorChenCA/sealed \
+  --commit $(git rev-parse HEAD) \
+  --build-dockerfile Dockerfile
 
 # Watch logs
 ecloud compute app logs -w

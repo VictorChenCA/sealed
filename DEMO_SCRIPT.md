@@ -121,9 +121,21 @@ Three things in order: (1) per-circle USDC bonds with on-chain settlement; (2) o
 
 - [ ] Deployed app responds to `/healthz` with `classifier.state == "ready"`
 - [ ] Smoke test passes against deployed URL
-- [ ] GitHub repo is public and pinned to the commit SHA shown in `/verify`
+- [ ] GitHub repo public at https://github.com/VictorChenCA/sealed
+- [ ] Repo commit SHA matches the one shown in `/verify` output
 - [ ] One example circle pre-created on the deployed app (so you don't have to wait for cold start)
 - [ ] Backup screen recording of the full flow, 90 seconds, ready to play if anything breaks
 - [ ] Architecture diagram open in a tab
 - [ ] Stage terminal has `curl https://<app>/verify | jq` in shell history
 - [ ] Phone on silent. Cat on different floor.
+
+## Environment note
+
+This is deployed to `sepolia` via `--verifiable` mode, which means EigenCompute's
+build infrastructure cloned the public GitHub repo at a specific commit, built
+the Docker image natively (no qemu cross-compile), and the on-chain record
+commits to (commit SHA, image digest). Any skeptical observer can `git clone`,
+`docker build`, and confirm the image digest matches.
+
+This is *strictly stronger* than building locally + uploading: the link between
+source code and running deployment is verifiable by anyone, not just by us.
