@@ -38,38 +38,8 @@ That conversation never happens because whoever shares first gives everything aw
 
 ## Architecture
 
-```mermaid
-flowchart LR
-    User([User<br/>browser])
-    Vercel[Next.js<br/>frontend<br/>on Vercel]
-    Privy[Privy Auth<br/>email · Google · wallet]
+<img width="1672" height="941" alt="image" src="https://github.com/user-attachments/assets/b74f1baf-33b9-429a-8491-df23ea9db995" />
 
-    subgraph TEE [Intel TDX enclave · g1-standard-4t]
-        direction TB
-        Caddy[Caddy<br/>TLS termination<br/>Let's Encrypt]
-        Express[Express<br/>API + circle state]
-        Qwen[Qwen 2.5 3B<br/>node-llama-cpp]
-        Wallet[KMS-sealed<br/>mnemonic → wallet<br/>signs reveals]
-        Caddy --> Express
-        Express --> Qwen
-        Express --> Wallet
-    end
-
-    GitHub[(GitHub<br/>public source<br/>commit pinned)]
-    EcloudBuild[EigenCloud<br/>verifiable build<br/>infrastructure]
-    Sepolia[(Sepolia<br/>smart contract<br/>commit · image digest)]
-    Verifier[Verifier<br/>Dashboard]
-
-    User -->|HTTPS| Vercel
-    Vercel -->|sign in| Privy
-    Vercel -->|/api/* /verify rewrite| Caddy
-
-    GitHub -->|clone @commit| EcloudBuild
-    EcloudBuild -->|build image| TEE
-    EcloudBuild -->|register| Sepolia
-    Sepolia -->|read| Verifier
-    Wallet -.->|enclave pubkey| Sepolia
-```
 
 Three independent chains converge in this picture:
 
@@ -214,46 +184,3 @@ Built during the EigenCloud Private Preview Demo Day program. Thanks to:
 ## License
 
 MIT.
-
----
-
-## Architecture diagram — image-gen prompt
-
-For a hero illustration of the diagram in `docs/architecture.png`, paste this into Midjourney, DALL-E 3, or Imagen. Image-gen models can't render arbitrary text reliably — keep the labels short (1-2 words) and accept that some text may need touching up in Figma after.
-
-```
-An ultra-clean technical system architecture diagram in the style of a Stripe
-or Vercel engineering blog post. Dark slate background (#0a0a0c). Minimal,
-geometric, isometric-leaning composition.
-
-Center of the image: a rounded-rectangle "enclave" container with a subtle
-teal glow border, labeled "Intel TDX" in tiny mono-spaced uppercase letters
-on the top edge. Inside it, three smaller stacked tiles: "Caddy", "Express",
-"Qwen". A small lock icon hovers over the enclave boundary, also in teal.
-
-Left side: a browser window icon labeled "Vercel" with an arrow flowing
-right toward the enclave. The arrow passes through a small "Privy" pill on
-the way.
-
-Right side: a GitHub octocat-style icon at top with an arrow flowing left
-into a hexagonal "EigenCloud Build" node, then arrows splitting downward
-into a Sepolia chain icon (small linked-cubes motif) and rightward into the
-enclave's Caddy tile. A small "Verifier Dashboard" rectangle hangs off the
-Sepolia node.
-
-Bottom of the enclave: a small "Enclave Key" wallet glyph (teal accent),
-with a dashed line up to the Sepolia chain icon labeled "signs reveals".
-
-Style: thin 1.5-pixel strokes, ui-monospace labels, restrained palette of
-near-black surfaces, hairline gray borders (#232329), single teal accent
-color (oklch(0.82 0.11 185), roughly #5eead4) reserved only for the enclave
-glow, the lock, and the wallet glyph. No gradients, no glow effects beyond
-the enclave border, no 3D depth, no shadows.
-
-Type all labels in a clean monospace font, short (max 12 chars each).
-Layout balanced left-to-right with the enclave as the visual anchor.
-Aspect ratio 16:9. High contrast, print-quality, suitable for embedding in
-a technical README.
-```
-
-If image-gen produces garbled text, the **Mermaid diagram above** is already the canonical-correct architecture and renders natively on GitHub — feel free to use it as-is and skip the static image.
