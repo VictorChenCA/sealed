@@ -47,7 +47,7 @@ Three independent chains converge in this picture:
 2. **Source-of-truth chain** (right side) — every deployment is built from a pinned GitHub commit by EigenCloud's own build pipeline. The `(commit_sha, image_digest)` tuple is registered on-chain at the Sepolia smart contract. Anyone can reproduce the build and confirm the digest matches.
 3. **Attestation chain** — the wallet that signs reveals is derived from a mnemonic that EigenCloud's KMS releases only to the exact attested image digest. Modify the image, the mnemonic is refused. The wallet's pubkey is queryable in `/verify` and visible on Sepolia Etherscan.
 
-An aesthetic version of this diagram lives at `docs/architecture.png` (generate from the prompt at the bottom of this README).
+The same diagram is also committed to `docs/architecture.png` as a backup asset in case the GitHub-hosted version above ever becomes unavailable.
 
 ---
 
@@ -116,19 +116,23 @@ The remaining trust assumption is Intel itself — that the TDX attestation key 
 
 ## Local development
 
-```bash
-# Backend
-npm install
-node scripts/download-model.mjs           # ~2 GB
-cp .env.example .env                      # set a test MNEMONIC for local only
-npm run dev                                # http://localhost:3000
+The backend (Express + Qwen) and frontend (Next.js) are separate processes; run them in two terminals on different ports.
 
-# Frontend (separate)
-cd frontend
-cp .env.example .env.local                 # set NEXT_PUBLIC_PRIVY_APP_ID
+```bash
+# Terminal 1 — backend on :3000
 npm install
-npm run dev                                # http://localhost:3001
+node scripts/download-model.mjs           # ~2 GB, one-time
+cp .env.example .env                       # set a test MNEMONIC for local only
+npm run dev
+
+# Terminal 2 — frontend on :3001
+cd frontend
+cp .env.example .env.local                 # set NEXT_PUBLIC_PRIVY_APP_ID + NEXT_PUBLIC_API_BASE_URL=http://localhost:3000
+npm install
+PORT=3001 npm run dev
 ```
+
+Open http://localhost:3001 — the frontend's `next.config.ts` rewrites `/api/*` and `/verify` to whatever `NEXT_PUBLIC_API_BASE_URL` points at, so the same code runs against either the local backend or the live enclave.
 
 ---
 
