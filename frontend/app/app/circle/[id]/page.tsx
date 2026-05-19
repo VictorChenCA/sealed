@@ -4,10 +4,27 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import Link from "next/link";
 import useSWR from "swr";
+import { usePrivy } from "@privy-io/react-auth";
 import { api } from "@/lib/api";
 import type { Circle, RevealResponse, SubmissionPayload, SubmitResponse } from "@/lib/types";
 import { fmtUSD, Hash, Pill, StateBadge } from "@/components/atoms";
 import { SiteHeader } from "@/components/site-header";
+
+/* Derive a stable, anonymous-feeling handle from whatever Privy gives us.
+   The handle is what shows up in the reveal — we want it to feel like a
+   pseudonym (no real email leaked), so we hash the identifier into a
+   small word-pair pool. */
+const HANDLE_ANIMALS = ["owl","fox","raven","stag","heron","ibex","lynx","otter","wren","hare","tern","shrike","mink","crane","newt","ferret"];
+const HANDLE_COLORS = ["amber","cobalt","violet","crimson","sage","onyx","azure","copper","ash","slate","ivory","ochre","rust","fern","mauve","clay"];
+function handleFromIdentity(identity: string | null | undefined): string {
+  if (!identity) return "";
+  let h = 0;
+  for (let i = 0; i < identity.length; i++) h = ((h << 5) - h + identity.charCodeAt(i)) | 0;
+  const a = HANDLE_ANIMALS[Math.abs(h) % HANDLE_ANIMALS.length];
+  const c = HANDLE_COLORS[Math.abs(h >> 8) % HANDLE_COLORS.length];
+  const n = Math.abs(h >> 16) % 90 + 10;
+  return `${c}_${a}_${n}`;
+}
 
 export default function CirclePage() {
   const { id } = useParams<{ id: string }>();
@@ -111,7 +128,25 @@ function Stepper({ sub }: { sub: "submit" | "waiting" | "reveal" }) {
 }
 
 function SubmitForm({ circle, onSubmitted }: { circle: Circle; onSubmitted: () => void }) {
-  const [handle, setHandle] = useState("dragon_jpeg");
+  const { user, authenticated } = usePrivy();
+  // Pick a stable identity string from whichever Privy method was used.
+  const identity =
+    user?.email?.address ??
+    user?.google?.email ??
+    user?.apple?.email ??
+    user?.github?.username ??
+    user?.discord?.username ??
+    user?.farcaster?.username ??
+    user?.wallet?.address ??
+    user?.id ??
+    null;
+  const derivedHandle = useMemo(() => handleFromIdentity(identity), [identity]);
+  const [handle, setHandle] = useState(derivedHandle || "anon_jpeg_42");
+  // Re-derive when user changes (sign-out + sign-in as different account)
+  useEffect(() => {
+    if (derivedHandle) setHandle(derivedHandle);
+  }, [derivedHandle]);
+
   const [level, setLevel] = useState(circle.scope.level);
   const [city, setCity] = useState(circle.scope.city ?? "San Francisco");
   const [base, setBase] = useState(204000);
@@ -200,7 +235,10 @@ function SubmitForm({ circle, onSubmitted }: { circle: Circle; onSubmitted: () =
         <div className="form-grid">
           <div className="field">
             <label>
-              Pseudonym <span style={{ color: "var(--dim)" }}>· shown in reveal</span>
+              Pseudonym{" "}
+              <span style={{ color: "var(--dim)" }}>
+                {authenticated ? "· derived from your sign-in, editable" : "· shown in reveal"}
+              </span>
             </label>
             <input value={handle} onChange={(e) => setHandle(e.target.value)} />
           </div>

@@ -106,9 +106,12 @@ button { font-family: inherit; font-size: inherit; color: inherit; }
 .field { display: flex; flex-direction: column; gap: 6px; min-width: 0; }
 .field > label { font-size: 12px; color: var(--muted); display: flex; align-items: center; gap: 6px; }
 .field > .hint { font-size: 11px; color: var(--dim); }
-input[type=text], input[type=number], input[type=email], select, textarea { appearance: none; -webkit-appearance: none; background: var(--surface-0); border: 1px solid var(--border-2); color: var(--text); font-family: inherit; font-size: 13px; padding: 9px 11px; border-radius: 6px; transition: border-color 0.12s ease, background 0.12s ease; width: 100%; }
-input::placeholder, textarea::placeholder { color: var(--dim); }
-input:focus, select:focus, textarea:focus { outline: none; border-color: color-mix(in oklch, var(--accent) 60%, var(--border-2)); background: var(--surface-1); box-shadow: 0 0 0 4px color-mix(in oklch, var(--accent) 12%, transparent); }
+/* Match all inputs incl. those with no explicit type attribute (Tailwind base resets them) */
+input, select, textarea { appearance: none; -webkit-appearance: none; background: var(--surface-0) !important; border: 1px solid var(--border-2); color: var(--text) !important; font-family: inherit; font-size: 13px; padding: 9px 11px; border-radius: 6px; transition: border-color 0.12s ease, background 0.12s ease; width: 100%; }
+input[type=submit], input[type=button], input[type=reset], input[type=checkbox], input[type=radio] { all: revert; }
+input::placeholder, textarea::placeholder { color: var(--dim) !important; }
+input:focus, select:focus, textarea:focus { outline: none; border-color: color-mix(in oklch, var(--accent) 60%, var(--border-2)); background: var(--surface-1) !important; box-shadow: 0 0 0 4px color-mix(in oklch, var(--accent) 12%, transparent); }
+input:-webkit-autofill { -webkit-text-fill-color: var(--text) !important; -webkit-box-shadow: 0 0 0 1000px var(--surface-0) inset !important; }
 .input-prefix { display: flex; align-items: center; background: var(--surface-0); border: 1px solid var(--border-2); border-radius: 6px; padding-left: 11px; color: var(--muted); font-family: var(--mono); font-size: 12px; }
 .input-prefix input { background: transparent; border: 0; padding-left: 6px; box-shadow: none !important; }
 .input-prefix:focus-within { border-color: color-mix(in oklch, var(--accent) 60%, var(--border-2)); box-shadow: 0 0 0 4px color-mix(in oklch, var(--accent) 12%, transparent); }

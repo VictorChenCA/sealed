@@ -18,27 +18,10 @@ export function Providers({ children }: { children: ReactNode }) {
 
   // Render plain children on the server (and the very first client render
   // before mount) — Privy can only initialize in the browser. This avoids
-  // SSG crashes when the app id isn't configured.
+  // SSG crashes when the app id isn't configured. Falls back to no-auth
+  // mode silently when Privy isn't set up — the UI degrades gracefully.
   if (!mounted || !PRIVY_APP_ID) {
-    return (
-      <>
-        {!PRIVY_APP_ID && mounted && (
-          <div
-            style={{
-              background: "rgba(251, 191, 36, 0.12)",
-              color: "rgb(251, 191, 36)",
-              borderBottom: "1px solid rgba(251, 191, 36, 0.3)",
-              fontSize: 12,
-              padding: "8px 12px",
-              textAlign: "center",
-            }}
-          >
-            NEXT_PUBLIC_PRIVY_APP_ID not configured. Auth disabled. Set it in .env.local.
-          </div>
-        )}
-        {children}
-      </>
-    );
+    return <>{children}</>;
   }
 
   return (
